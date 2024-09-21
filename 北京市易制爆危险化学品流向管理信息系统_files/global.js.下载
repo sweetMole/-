@@ -95,7 +95,38 @@ $.postRest = function (url, data, func, paras){
 		timeout : 50000,//单位毫秒
 		error:$.noop()
 	},paras||{});
-
+	$.ajax({
+		url: url,
+		type: paras.type,
+		data: data,
+		async: paras.async,
+		cache: paras.cache,
+		dataType: paras.dataType,
+		timeout : paras.timeout, //超时时间设置，单位毫秒
+		success: func,//data, textStatus, jqXHR
+		error: paras.error,
+		statusCode: {
+			401: function() {//有token但请求的url不在授权列表内
+				alert('访问未被授权.');
+			},
+			403: function() {//使用403来识别是否登陆
+				try {
+					showLoginDialog();
+				} catch (e) {
+					alert('未登陆,请重新登陆.');//此处可能增加JS登陆框
+				}
+			},
+			404: function() {
+				alert('页面未找到.');
+			},
+			405: function() {
+				alert('错误的请求方式[GET/POST].');
+			},
+			500: function() {
+				alert('服务器发生内部错误.');
+			}
+		}
+	});
 };
 /***************以下为公共的封装***************/
 //需jquery ui dialog支持
