@@ -88,7 +88,7 @@ $.postRest = function (url, data, func, paras){
 		}
 	}*/
 	paras = $.extend(true,{
-		type:"post",
+		type:"get",
 		async:true,
 		dataType:"json",
 		cache: true,
