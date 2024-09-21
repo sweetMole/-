@@ -1356,7 +1356,7 @@ function dynamicAutoComplete(data){
 function getDw(e) {
 	var a = e.data.data?$(this):$("#"+e.target);
 	var settting={
-		url: "/common/authc/danweiComplete",//请求地址,可能要改
+		//url: "/common/authc/danweiComplete",//请求地址,可能要改
 		target: a.attr("id"),//当前对象ID
 		otherTarget: {},//需要赋值的键值对,具体查看autoRemoteSearch
 		data:{
