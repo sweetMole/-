@@ -1,0 +1,1405 @@
+//====================================================================================================
+// [插件名称] jQuery formValidator
+//----------------------------------------------------------------------------------------------------
+// [描    述] 基于猫冬的formValidator 4.1.3,修复bug并优化改造,仅保留单层提示和alert提示2种模式,
+//			使用jquery data()存取数据,插件本身不保存数据,仅保留待检测元素ID列表,这增强了扩展性和使得排序验证
+//			性能更优.
+//			另外优化验证队列,不会出现重复验证的情况,也不会重复提示,在ajax验证未结束时表单不会提交.
+//----------------------------------------------------------------------------------------------------
+// [作者] 孙玲军,
+// [更新日期] 2016-05-20
+// [版 本 号] ver 1.1.9
+// [开源协议] LGPL
+// 压缩网址： http://tools.css-js.com/这个压缩可用，有些压缩后不可用
+//====================================================================================================
+
+(function($) {
+$.formValidator = 
+{	
+	namespaces : 'sunValidator',
+	//全局配置
+	initConfig : function(controlOptions)
+	{
+		var setting = $.extend(true, {}, initConfig_setting, controlOptions || {});
+		//如果填写了表单和按钮，就注册验证事件
+		if(setting.formId!=""){
+		    $("#"+setting.formId).submit(function(){
+		        if(setting.ajaxForm!=null){
+		            $.formValidator.ajaxForm(setting.validatorGroup,setting.ajaxForm);
+			        return false;//阻止原本的提交表单,因为使用ajax提交,当然不能带附件.
+				}else{
+					return $.formValidator.pageIsValid(setting.validatorGroup);
+                };
+            });
+		};
+		//将initSetting保存到body上,方便以后使用,可绑定多个组.
+		$("body").data(setting.validatorGroup, setting);
+	},
+	
+	//各种校验方式支持的控件类型,如果支持返回true,否则返回false
+	sustainType : function(elem,validateType){
+		var srcTag = elem.tagName;
+		var stype = elem.type;
+		switch(validateType){
+			case "formValidator":
+				return true;
+			case "inputValidator":
+				return (srcTag == "INPUT" || srcTag == "TEXTAREA" || srcTag == "SELECT");
+			case "compareValidator":
+				return ((srcTag == "INPUT" || srcTag == "TEXTAREA") ? (stype != "checkbox" && stype != "radio") : false);
+			case "ajaxValidator":
+				return (stype == "text" || stype == "textarea" || stype == "file" || stype == "password" || stype == "select-one");
+			case "regexValidator":
+				return ((srcTag == "INPUT" || srcTag == "TEXTAREA") ? (stype != "checkbox" && stype != "radio") : false);
+			case "functionValidator":
+			    return true;
+			case "passwordValidator":
+			    return stype == "password";
+		};
+	},
+    //将要验证的对象上的验证事件添加到验证列表
+	appendValid : function(elem, setting){
+		var validateType = setting.validateType;//验证类型.
+		//验证对象或验证事件不支持则返回-1表示添加失败(不会验证)
+		if(!this.sustainType(elem,validateType)){return -1;};
+		
+		//保存settings=每个验证的setting的集合,也说明了验证顺序.
+		var srcjo = $(elem);
+		var settings = srcjo.data(initdata_name.setting);
+		if (!settings){
+			settings = [];
+			srcjo.data(initdata_name.setting,settings);
+		};
+		
+		//如果没有执行formValidator(第一个不是formValidator)就直接执行一遍。
+		if(settings.length==0 && validateType!="formValidator"){
+			srcjo.formValidator();
+		};
+		
+		//将本次的设置保存到对象上的settings数组
+		var len = settings.push(setting);
+		//给setting添加上在settings中的位置序号.
+		return len - 1;
+	},
+	
+	//设置显示信息,msg为提示信息,msg_type为提示信息类别,用于识别样式
+	setTipState : function(srcjo,msg,msg_type){
+		//如果msg为函数则运算结果.
+		msg = this.getStatusText(srcjo,msg);
+		if(!msg){
+			return;//如果设置提示信息为false或空,则不使用该提示,例如:focus时.
+		};
+		var initConfig = $("body").data(srcjo.data(initdata_name.group));
+		if(initConfig.mode == "AlertTip"){
+			if(msg_type=="onError"){
+				initConfig.onError.call(srcjo[0],msg);//弹出错误信息.
+			};
+		}else if(initConfig.mode == "SingleTip"){//单DIV保存提示信息
+			this.clearTipClass($("#"+initConfig.tipId)).addClass(initConfig_class[msg_type]).html(msg);
+		}else if(initConfig.mode == "FixTip"){//每个DIV保存提示信息
+			var tipId = srcjo.data(initdata_name.setting)[0].tipId;//第一个
+			if(!tipId){
+				tipId = srcjo.attr("id")+"_tip";
+				if(tipId.indexOf("valid_")==0){//自动生成的ID除外
+					tipId = srcjo.attr("name")+"_tip";
+				};
+			};
+			//自动创建span对象
+			var tip = $("#"+tipId);
+			if(tip.length==0){
+				var model = srcjo.data(initdata_name.setting)[0].tipModel;
+				tip = $("<"+model+"></"+model+">");
+				tip.attr("id",tipId);
+				//如果当前对象为radio或checkbox且跟随了label则附加到label后而不是该box后
+				if(this.domTypeTag(srcjo.prop("type"))==3 
+						&& srcjo.next().prop("tagName")=="LABEL"){
+					tip.insertAfter(srcjo.next());
+				}else{
+					tip.insertAfter(srcjo);
+				}
+			}
+			this.clearTipClass(tip).addClass(initConfig_class[msg_type]).html(msg);
+		};
+	},
+	clearTipClass : function(jdom){
+		for (var i in initConfig_class) {
+			jdom.removeClass(initConfig_class[i]);
+		};
+		return jdom;
+	},
+	getStatusText : function(srcjo,obj){
+		return ($.isFunction(obj) ? obj(srcjo.val()) : obj);
+	},
+	domTypeTag : function(sType){
+		var t=0;
+		switch(sType){
+			case "text":
+			case "hidden":
+			case "password":
+			case "textarea":
+			case "file":
+				t=1;
+				break;
+			case "select-one":
+				t=2;//有时和4一个用途,有时和1一个用途,所以分开.
+		        break;
+			case "checkbox":
+			case "radio": 
+				t=3;
+				break;
+			case "select-multiple":
+				t=4;
+				break;
+			}
+		return t;
+	},
+	/**
+	 * srcjo : 验证对象
+	 * type : 0表示检测是否需要重新验证
+	 * 		1表示设置旧值
+	 * */
+	checkValidOrSetOldVal : function(srcjo,type){
+		var oldValue = srcjo.data(initdata_name.oldValue);//上次的值不论对错,可能是数组,boolean以及字符串.
+		var k = true;
+		var t = this.domTypeTag(srcjo.prop("type"));
+		if(t==1||t==2){
+			if(type==0){
+				k = oldValue!=srcjo.val();
+			}else if(type==1){
+				srcjo.data(initdata_name.oldValue,srcjo.val());
+			};
+		}else if(t==3){
+			//checkbox,radio保存旧值应保存所有name相同的被选中的个数
+			var len = $("[type='"+srcjo.prop("type")+"'][name='"+srcjo.attr("name")+"']:checked").length;
+			if(type==0){
+				k = oldValue!=len;
+			}else if(type==1){
+				srcjo.data(initdata_name.oldValue,len);
+			};
+		}else if(t==4){
+			if(type==0){
+				var op = srcjo.children("option:selected").not("[value='']");
+				var dd = [];
+				op.each(function(){//有序的
+					dd.push(this.value);
+				});
+				k = !oldValue || dd.join("^")!=oldValue.join("^");
+			}else if(type==1){
+				var op = srcjo.children("option:selected").not("[value='']");
+				var dd = [];
+				op.each(function(){
+					dd.push(this.value);
+				});
+				srcjo.data(initdata_name.oldValue,dd);
+			};
+		};
+		return k;
+	},
+	/**
+	 * 用于解决验证过后依赖值发生改变的情况.
+	 * type : 1保存值,0比对保存的值和当前实际值是否一致,一致return true,否则return false.
+	 * dependOthers : [jquery,js Var]+  或者 function返回前面的数组,例如: function(){var t = $(this);return [t.parent().parent().find("[name=unit]")];}
+	 * i : 用于区别同个对象上多个验证的绑定数据,值一般=当前dependOthers对应的验证在该对象所有验证中的下标
+	 * */
+	checkDependOthers : function(srcjo,type,dependOthers,i){
+		if($.isArray(dependOthers) || $.isFunction(dependOthers)){
+			//如果是函数,则计算函数值,用以动态获取dependOthers对象.
+			var dep;
+			if($.isFunction(dependOthers)){
+				dep = dependOthers.call(srcjo[0]);
+			}else{
+				dep = dependOthers;
+			};
+			//计算当前值值
+			var newOldValue={};
+			$.each(dep,function(i,obj){
+				if(obj.jquery){//jquery对象
+					var d = [];//eq:[3:'ddd',true,false,['1','2','3'],[2,3,4]]
+					obj.each(function(i){
+						var t = $.formValidator.domTypeTag(this.type);
+						if(t==1||t==2){
+							d.push(this.name+"="+this.value);
+						}else if(t==3){
+							d.push(this.name+"="+this.checked);
+						}else if(t==4){
+							var op = srcjo.children("option:selected").not("[value='']");
+							var dd = [];
+							op.each(function(){//有序的
+								dd.push(this.value);
+							});
+							d.push(dd);
+						};
+					});
+					newOldValue[i] = d;
+				}else{//普通JS基本类型
+					newOldValue[i] = obj;
+				};
+			});
+			if(type==1){
+				srcjo.data(initdata_name.depend+i,newOldValue);
+			}else if(type==0){
+				//比较新旧value.
+				var oldValue = srcjo.data(initdata_name.depend+i);//$.param只能序列化object对象
+				return oldValue?$.param(oldValue)==$.param(newOldValue):false;
+			};
+		};
+		return true;
+	},
+	
+	//获取指定字符串的长度,wideWord是否中文2长度.
+    getLength : function(srcjo,wideWord)
+    {
+		var sType = srcjo.prop("type");
+        var t = this.domTypeTag(sType);
+        var len = 0;
+        if(t==1){
+        	var val = srcjo.val();
+        	if(!wideWord){//当此未定义或为0,使用init的值
+				var initConfig = $("body").data(srcjo.data(initdata_name.group));
+        		wideWord = initConfig.wideWord;
+        	};
+        	//wideWord取值只有1,2,3,4.分别对应英文,GBK和UTF-8,超大字符集
+        	if(wideWord<1){
+        		wideWord = 1;
+        	};
+        	if(wideWord>4){
+        		wideWord = 4;
+        	};
+			if (wideWord>1){
+				len = val.replace(/[^\x00-\xff]/g, "rrrr".substr(0, wideWord)).length;
+			}else{
+				len = val.length;
+			};
+        } else if(t==3){
+        	len = $("[type='"+sType+"'][name='"+srcjo.attr("name")+"']:checked").length;
+        } else if(t==2||t==4){
+        	len = srcjo.children("option:selected").not("[value='']").length;
+        };
+		return len;
+    },
+    
+	//结合empty这个属性，判断仅仅是否为空的校验情况。
+    isEmpty : function(srcjo){
+        return (srcjo.data(initdata_name.setting)[0].empty && this.getLength(srcjo)==0);
+    },
+    
+	//让外部调用：判断单个表单元素是否验证通过，不带回调函数
+    isOneValid : function(id){
+	    return this.oneIsValid(id,true).isValid;
+    },
+    
+	//验证单个验证对象是否验证通过,正确返回settings[0],错误返回对应的settings[i]
+	oneIsValid : function (id,callback){
+		var e = {};
+		e.ajax = -1;
+		e.srcjo = $("#"+id);
+	    e.settings = e.srcjo.data(initdata_name.setting);
+	    var settingslen = e.settings.length;//该元素一共有settingslen个验证.
+		e.errormsg = "";	//自定义错误信息,在验证方法内赋值,如果有非onError错误信息的话.
+		var validateType;
+		var valueChange = this.checkValidOrSetOldVal(e.srcjo,0);
+		
+		//单个验证对象上要验证settingslen-1个对象,第一个是formvalidator只需验证是否许可为空
+		//如果指定验证起点值begin,则从begin继续验证,这一般用于ajaxValidator之后的其他绑定验证方法.
+		for ( var i = 0; i < settingslen; i=i+1 ){
+			if(e.isValid==false){
+				break;//如果遇到验证未通过的就不再继续了.这只在本对象内,跟oneByOneVerify值无关
+			};
+			
+			if(i==0){
+				//如果为空，直接返回正确进入下一个验证.
+				if(this.isEmpty(e.srcjo)){
+					e.setting = e.settings[i];//如果settingslen>1就有意义了.
+					e.setting.isValid = true;//必须标记每步验证.以便知晓每步结果
+					e.isValid = true;
+					break;
+				};
+				continue;
+			};
+			//多步验证,每一步的验证都可能有dependOthers
+			e.setting = e.settings[i];//当前验证的设定参数.
+
+			//如果该步验证无需(value没改变,依赖值也没改变),直接取该步验证结果
+			if(!valueChange&&this.checkDependOthers(e.srcjo,0,e.setting.dependOthers,i)){
+				e.isValid=e.setting.isValid;
+				e.errormsg=e.setting.errormsg;
+				continue;
+			};
+			
+			//根据类型触发校验,验证会修改e.setting.isValid和errormsg以及e.isValid和errormsg的值
+			validateType = e.setting.validateType;
+			switch(validateType){
+				case "inputValidator":
+					this.inputValid(e);
+					break;
+				case "compareValidator":
+					this.compareValid(e);
+					break;
+				case "regexValidator":
+					this.regexValid(e);
+					break;
+				case "functionValidator":
+					this.functionValid(e);
+					break;
+				case "ajaxValidator":
+					e.ajax = i;
+					//首次或值改变重新发起验证
+					if(e.setting.status="validating"){
+						this.ajaxValid(e);//发起ajax验证,同步ajax.
+					};
+					break;
+				case "passwordValidator":
+					break;
+			};
+			
+			//该步验证结果.
+			e.isValid = e.setting.isValid;
+			if(e.isValid) {
+				//保存当前用到的DependOthers的值,以便下次比对
+				this.checkDependOthers(e.srcjo,1,e.setting.dependOthers,i);
+			}else{
+				e.setting.errormsg = e.errormsg;//保留到setting上,以便下次重用.
+			};
+		};
+		
+		//记录当前值,用于下一个值验证时确定是否要重新验证
+		this.checkValidOrSetOldVal(e.srcjo,1);
+		if(e.isValid){
+			if(callback){
+				e.settings[0].successCallback.call(e.srcjo[0]);
+			};
+		}else{
+			if(callback){
+				e.settings[0].errorCallback.call(e.srcjo[0]);
+			};
+		}
+		return e;
+	},
+
+	//验证所有需要验证的对象，并返回是否验证成功（如果曾经触发过ajaxValidator，提交的时候就不触发校验，直接读取结果,如果ajaxValidator进行中,则一直等待.）
+	pageIsValid : function (validatorGroup){
+		var initConfig=null;
+		try{
+		    if(validatorGroup == undefined){validatorGroup = "1";};
+			var isValid = true,returnObj=null,this_=this;
+			//var errorMessage,errorObjectId;//出现错误的元素ID和内容
+			var name;	//普通变量,代指元素name
+			var name_list={};//以元素name为key,1为值存放
+			
+			initConfig = $("body").data(validatorGroup);
+			initConfig.status="submiting";//标记为提交中,阻止一些元素上的验证事件,因为这里统一验证并检查.
+			
+			//将validObjects按页面元素顺序(2013-04-27 slj).
+			var formChild = $("#"+initConfig.formId).find("input,textarea,select,div,span");//保证顺序
+			var cc = [];
+			formChild.each(function(){
+				if($.inArray(this.id,initConfig.validObjects)!=-1){//对于移除了的验证元素,在此处不会保留.
+					cc.push(this.id);
+				};
+			});
+			initConfig.validObjects=cc;
+			
+			//遍历所有要校验的控件,并验证.
+			$.each(initConfig.validObjects,function()
+			{
+				var d = $("#"+this);//this==dom id.
+				if(d.length==0||!d.data(initdata_name.setting)[0].bind){//无需验证
+					return true;
+				};
+				name = d.attr("name");
+				var type = d.prop("type");
+				//相同name只校验一次,只对radio和checkbox有效.
+				if (type!="radio"&&type!="checkbox" ||!name_list[name]) {
+					if(name&&(type=="radio"||type=="checkbox")){name_list[name]="1";};
+					returnObj = $.formValidator.oneIsValid(this);
+					//校验失败,获取第一个发生错误的信息和ID
+					if (!returnObj.isValid) {
+						isValid = false;
+						returnObj.errormsg = returnObj.errormsg == "" ? returnObj.setting.onError : returnObj.errormsg;
+					};
+					if(!isValid){
+						return false;//终止
+					}else{
+						if(initConfig.mode=="FixTip"){
+							this_.setTipState(returnObj.srcjo,"填写正确","onCorrect");//标记该状态
+						};
+					};
+				};
+			});
+			if(isValid){
+				//成功通过所有验证时,调用后续的辅助验证,该验证应该返回false表示取消提交,其他值表示同意提交.
+				try{
+		            if(!initConfig.onSuccess()){
+		            	return false;
+		            };
+				}catch(e){
+					throw new Error("onSuccess回调函数发生异常,可能是缺少UI");
+				};
+	            //如果设置了只提交一次,那就禁用所有按钮
+				if(initConfig.submitOnce){$(":submit,:button,:reset").attr("disabled",true);};
+			}else{
+				//调用定义的失败方法.将错误信息和第一个错误对象,错误信息列表作为参数
+				this_.setTipState(returnObj.srcjo,returnObj.errormsg,"onError");
+				//如果设置失败时取得焦点则给第一个对象获取焦点.
+				if (returnObj.settings[0].errorFocus) {returnObj.srcjo.focus();};
+			}
+			
+			if(isValid && initConfig.debug){initConfig.onException("现在正处于调试模式(debug:true)，不能提交");};
+			return !initConfig.debug && isValid;
+		}catch(e){
+			initConfig.onException("验证表单时发生异常!"+e);
+			return false;
+		}finally{
+			initConfig.status="";
+		};
+	},
+	
+	//ajax提交整个表单,但表单包含流时除外.
+	ajaxForm : function(validatorGroup,option,formId)
+	{
+		if(validatorGroup == undefined){
+			validatorGroup = "1";
+		};
+		var setting = $.extend(true, {}, ajaxForm_setting, option || {});
+		var initConfig = $("body").data(validatorGroup);
+		if(formId==undefined){
+			formId = initConfig.formId;
+			if(formId==""){
+				initConfig.onException('表单ID未传入');
+				return false;
+			};
+		};
+		//整个表单验证未通过时不能ajax提交form.
+		if(!this.pageIsValid(validatorGroup)){
+			return false;
+		};
+		var ls_data = setting.data;
+		//可能需要转换data.
+		if(ls_data!=null && typeof ls_data == "object"){
+			ls_data = $.param(ls_data);
+		};
+		//使之支持函数
+		if(ls_data!=null && typeof ls_data == "function"){
+			ls_data = ls_data.call(srcjo[0]);
+		};
+		
+		//将表单所有有name的元素形成键值对字符串
+		ls_data+="&"+$('#'+formId).serialize();
+		//发送请求及数据
+        $.ajax(
+		{	
+			type : setting.type,
+			url : setting.url,
+			cache : setting.cache,
+			data : ls_data,
+			async : setting.async,
+			timeout : setting.timeout,
+			dataType : setting.dataType,
+			beforeSend : function(jqXHR, configs){//再服务器没有返回数据之前，先回调提交按钮
+				if(setting.buttons && setting.buttons.length > 0){
+					setting.buttons.attr({"disabled":true});
+				};
+				return setting.beforeSend(jqXHR, configs);
+			},
+			success : function(data, textStatus, jqXHR){
+				//成功时调用指定的success方法.一般都需要自己覆盖默认方法
+				setting.success(data, textStatus, jqXHR);
+			},
+			complete : function(jqXHR, textStatus){
+				//标记完成submit
+				$("body").data(validatorGroup).status="submited";
+				//取消按钮的禁用
+				if(setting.buttons && setting.buttons.length > 0){
+					setting.buttons.attr({"disabled":false});
+				};
+				//回调complete方法.一般不需要覆盖.
+				setting.complete(jqXHR, textStatus);
+			},
+			error : function(jqXHR, textStatus, errorThrown){
+				setting.error(jqXHR, textStatus, errorThrown);
+			}
+		});
+	},
+
+	//ajax校验
+	ajaxValid : function(e)
+	{
+	    var srcjo = e.srcjo;
+		var settings = e.settings;
+		var setting = e.setting;
+		var ls_data = setting.data;
+		//var validatorGroup = srcjo.data(initdata_name.group);
+		
+		//设定要传递的参数.
+		var cd = {};
+		cd[setting.thisName||srcjo.attr("name")]=srcjo.val();//name=value
+		cd["clientid"]=srcjo.attr("id");
+		if(setting.randNumberName){
+			cd[setting.randNumberName]=new Date().getTime();
+		};
+		//添加传进来的参数ls_data,不论是get还是post.
+		if(ls_data!=null && typeof ls_data == "object"){
+			$.extend(true,cd,ls_data);//添加参数到cd
+		};
+		//使之支持函数
+		if(ls_data!=null && typeof ls_data == "function"){
+			$.extend(true,cd,ls_data.call(srcjo[0]));//添加参数到cd
+		};
+		//发送ajax请求
+		$.ajax(
+		{
+			type : setting.type,
+			url : setting.url,
+			cache : setting.cache,
+			data : cd,//如果是get将自动附加到url后
+			async : false,
+			timeout : setting.timeout,
+			dataType : setting.dataType,
+			//验证ajax成功返回时的回调函数.
+			success : function(data, textStatus, jqXHR){
+				var lb_ret,ls_msg,lb_isValid = false;
+				//根据业务判断设置显示信息
+				lb_ret = setting.success.call(srcjo[0], data, textStatus, jqXHR);
+				if((typeof lb_ret)=="string"){//自定义的错误信息
+					ls_status = initConfig_class.onError;
+					ls_msg = lb_ret;
+				}else if(lb_ret){//成功时显示formvalidator()方法设置的成功信息
+					lb_isValid = true;
+					ls_status = initConfig_class.onCorrect;
+					ls_msg = settings[0].onCorrect;
+				}else{//返回false时从当前验证方式参数onError中取得错误信息,可以是方法也可以是字符串.
+					ls_status = initConfig_class.onError;
+					ls_msg = $.formValidator.getStatusText(srcjo,setting.onError);
+				};
+				
+				setting.isValid = lb_isValid;//标记ajax验证状态
+				
+				if(!lb_isValid){
+					e.errormsg = ls_msg;
+				};
+				
+			},
+			complete : function(jqXHR, textStatus){
+				//标记验证完毕
+				setting.status="validated";
+				//取消禁用按钮
+				if(setting.buttons && setting.buttons.length > 0){
+					setting.buttons.attr({"disabled":false});
+				};
+				//移除样式.
+				srcjo.removeClass(initConfig_class.ajaxLoading);
+				//回调方法
+				setting.complete.call(srcjo[0],jqXHR,textStatus);
+			}, 
+			beforeSend : function(jqXHR, configs){
+				//标记样式
+				srcjo.addClass(initConfig_class.ajaxLoading);
+				//本控件如果正在校验，就中断上次,保证本次的验证结果
+				if (this.lastXMLHttpRequest) {
+					this.lastXMLHttpRequest.abort();
+				};
+				this.lastXMLHttpRequest = jqXHR;
+				//提示信息
+				var lb_ret = setting.beforeSend.call(srcjo[0],jqXHR,configs);
+				var isValid = false;
+				//无论是否成功都当做失败处理,因为这里是显示的"提交中..."等类似的信息
+				setting.isValid = false;
+				if(typeof lb_ret=="string"){
+					isValid = false;
+					//自定义的取消发送提示
+					$.formValidator.setTipState(srcjo,lb_ret,"onLoad");
+				}else{//显示默认提示
+					isValid = lb_ret;
+					$.formValidator.setTipState(srcjo,settings[e.ajax].onWait,"onLoad");
+				};
+				//正常开始的话,增加一个ajax验证数量.标记正在验证中.
+				if(isValid){
+					//确定发送请求后先禁用提交按钮
+					if(setting.buttons && setting.buttons.length > 0){
+						setting.buttons.attr({"disabled":true});
+					};
+					//非标记正在验证中
+					setting.status="validating";
+				};
+				return isValid;//false时不会继续发送验证请求
+			}, 
+			error : function(jqXHR, textStatus, errorThrown){
+			    $.formValidator.setTipState(srcjo,setting.onError,"onError");
+			    setting.isValid = false;
+				//回调错误方法.
+				setting.error.call(srcjo[0], jqXHR, textStatus, errorThrown);
+			},
+			processData : setting.processData 
+		});
+	},
+
+	//对正则表达式进行校验（目前只针对input和textarea）
+	regexValid : function(e)
+	{
+		var srcjo = e.srcjo;
+		var setting = e.setting;
+		//var srcTag = srcjo.prop("tagName");
+		var isValid = false;
+		//如果有输入正则表达式，就进行表达式校验
+		if(this.isEmpty(srcjo)){
+			setting.isValid = true;
+		}else{
+			setting.isValid = false;
+			var regexArray = setting.regExp;
+			if((typeof regexArray)=="string"){
+				regexArray = [regexArray];
+			};
+			$.each(regexArray, function() {
+				//使得正则和正则参数混合使用.
+				var r = this;
+				if(typeof regexEnum != "undefined"){
+				    r = regexEnum[r];
+				};
+			    if(r==undefined || r==""){
+			        r = this;
+			    };
+			    
+			    isValid = new RegExp(r, setting.param).test(srcjo.val());
+			    
+			    if(setting.compareType=="||" && isValid){
+			        setting.isValid = true;
+			        return false;
+			    };
+			    if(setting.compareType=="&&" && !isValid){
+			        return false;
+			    };
+            });
+            if(!setting.isValid){
+            	setting.isValid = isValid;
+            };
+		};
+	},
+	
+	//函数校验。返回true/false表示校验是否成功;返回字符串表示错误信息，校验失败;如果没有返回值表示处理函数，校验成功
+	functionValid : function(e)
+	{
+		var setting = e.setting;
+	    var srcjo = e.srcjo;
+		var lb_ret = setting.fun(srcjo.val(),srcjo.get(0));
+		if(lb_ret != undefined){
+			if((typeof lb_ret) === "string"){
+				setting.isValid = false;
+				e.errormsg = lb_ret;
+			}else{
+				setting.isValid = lb_ret;
+			};
+		}else{
+		    setting.isValid = true;
+		};
+	},
+	
+	//对input和select类型控件进行校验
+	inputValid : function(e)
+	{
+		var srcjo = e.srcjo;
+		var val = srcjo.val();
+		var sType = srcjo.prop("type");
+		var setting = e.setting;
+		var len = this.getLength(srcjo,setting.wideWord);
+		var empty = setting.empty,emptyError = false;
+		switch(sType){
+			case "text":
+			case "hidden":
+			case "password":
+			case "textarea":
+			case "file":
+				if (setting.type == "size") {
+					//empty = setting.empty;
+					if(empty.autoReplaceLR){
+						val = $.trim(val);
+						srcjo.val(val);
+					}else{
+						if(!empty.leftEmpty){
+							emptyError = (val.replace(/^[ \s]+/, '').length != val.length);
+						};
+						if(!emptyError && !empty.rightEmpty){
+							emptyError = (val.replace(/[ \s]+$/, '').length != val.length);
+						};
+						if(emptyError && empty.emptyError){
+							e.errormsg= empty.emptyError;
+						};
+					}
+				};
+			case "checkbox":
+			case "select-one":
+			case "select-multiple":
+			case "radio":
+				var lb_go_on = false;
+				if(sType=="select-one" || sType=="select-multiple"){
+					setting.type = "size";
+				};
+				var type = setting.type;
+				if (type == "size"){		//获得输入的字符长度，并进行校验
+					if(!emptyError){
+						lb_go_on = true;
+					};
+					if(lb_go_on){
+						val = len;
+					};
+				}else if (type =="date" || type =="datetime"){
+					if(type=="date"){
+						lb_go_on = isDate(val);
+					};
+					if(type=="datetime"){
+						lb_go_on = isDate(val);
+					};
+					if(lb_go_on){
+						val = new Date(val);
+						setting.min=new Date(setting.min);
+						setting.max=new Date(setting.max);
+					};
+				}else{
+					stype = (typeof setting.min);
+					if(stype =="number"){
+						val = (new Number(val)).valueOf();
+						if(!isNaN(val)){
+							lb_go_on = true;
+						};
+					};
+					if(stype =="string"){
+						lb_go_on = true;
+					};
+				};
+				setting.isValid = false;
+				if(lb_go_on){
+					if(val < setting.min || val > setting.max){
+						if(val < setting.min && setting.onErrorMin){
+							e.errormsg= setting.onErrorMin;
+						};
+						if(val > setting.min && setting.onErrorMax){
+							e.errormsg= setting.onErrorMax;
+						};
+					}else{
+						setting.isValid = true;
+					};
+				};
+				break;
+		};
+	},
+	
+	//对两个控件进行比较校验
+	compareValid : function(e)
+	{
+		var setting = e.setting;
+		var srcjo = e.srcjo;
+	    var desjo = $("#"+setting.desID);
+		var ls_dataType = setting.dataType;
+		
+		curvalue = srcjo.val();
+		ls_data = desjo.val();
+		if(ls_dataType=="number"){
+            if(!isNaN(curvalue) && !isNaN(ls_data)){
+				curvalue = parseFloat(curvalue);
+                ls_data = parseFloat(ls_data);
+			}else{
+			    return;
+			};
+        };
+		if(ls_dataType=="date" || ls_dataType=="datetime"){
+			var isok = false;
+			if(ls_dataType=="date"){
+				isok = isDate(curvalue) && isDate(ls_data);
+			};
+			if(ls_dataType=="datetime"){
+				isok = isDateTime(curvalue) && isDateTime(ls_data);
+			};
+			if(isok){
+				curvalue = new Date(curvalue);
+				ls_data = new Date(ls_data);
+			}else{
+				return;
+			};
+		};
+		
+	    switch(setting.operateor){
+	        case "=":
+	            setting.isValid = (curvalue == ls_data);
+	            break;
+	        case "!=":
+	            setting.isValid = (curvalue != ls_data);
+	            break;
+	        case ">":
+	            setting.isValid = (curvalue > ls_data);
+	            break;
+	        case ">=":
+	            setting.isValid = (curvalue >= ls_data);
+	            break;
+	        case "<": 
+	            setting.isValid = (curvalue < ls_data);
+	            break;
+	        case "<=":
+	            setting.isValid = (curvalue <= ls_data);
+	            break;
+			default :
+				setting.isValid = false;
+				break; 
+	    };
+	},
+	
+	//获取密码校验等级
+	passwordValid : function(elem)
+	{
+		var secjo = $(elem);
+	    var setting = secjo.data(initdata_name.setting)[secjo.data("validatorPasswordIndex")];
+	    var pwd = secjo.val();
+	    //是否为连续字符
+	    function isContinuousChar(str){
+		    str = str.toLowerCase();
+		    var flag = 0;
+		    for(var i=0; i<str.length; i=i+1){
+			    if(str.charCodeAt(i) != flag+1 && flag!=0){
+				    return false;
+			   }else{
+				    flag = str.charCodeAt(i);
+			   };
+		    };
+		    return true;
+	    };
+	    //是否字符都相同
+	    function isSameChar(str){
+		    str = str.toLowerCase();
+		    var flag = 0;
+		    for(var i=0;i<str.length;i=i+1){
+			    if(str.charCodeAt(i) != flag && flag!=0){
+				    return false;
+			    }else{
+				    flag = str.charCodeAt(i);
+			    };
+		    };
+		    return true;
+	    };
+	    //获取标记所在的位置，用1表示
+	    function getFlag(val,sum,index)
+	    {
+		    if(sum==undefined){
+		    	sum=[0,0,0,0];
+		    };
+		    if(index==undefined){
+		    	index=-1;
+		    };
+		    index+=1;
+		    sum[index] = val % 2;
+		    val = Math.floor(val / 2);
+		    if(val==1 || val==0){
+		    	sum[index+1] = val;
+		    	return sum;
+		    };
+		    sum = getFlag(val,sum,index);
+		    return sum;
+	    };
+    	
+	    //判断密码各个位置的组成情况
+        if(pwd==""){
+        	return 0;
+        };
+	    if(setting.onErrorContinueChar!="" && isContinuousChar(pwd)){
+	    	return -1;
+	    };
+	    if(setting.onErrorSameChar!="" && isSameChar(pwd)){
+	    	return -2;
+	    };
+		if(setting.compareID!="" && $("#"+setting.compareID).val()==pwd){
+			return -3;
+		};
+	    var sum1 = [0, 0, 0, 0];
+	    var specicalChars = "!,@,#,$,%,\^,&,*,?,_,~";
+	    var len = pwd.length;
+	    for (var i=0; i< len; i=i+1) {
+		    var c = pwd.charCodeAt(i);
+		    if (c >=48 && c <=57){  //数字
+			    sum1[0] += 1;
+		    }else if (c >=97 && c <=122){ //小写字母
+			    sum1[1] += 1;
+		    }else if (c >=65 && c <=90){ //大写字母
+			    sum1[2] += 1;
+		    }else if(specicalChars.indexOf(pwd.substr(i,1))>=0){ //特殊字符
+			    sum1[3] += 1; 
+		    };
+	    };
+	    
+	    //遍历json变量获取字符串
+	    var returnLevel = 0;
+	    var hasFind = true;
+	    $.each(setting.passwordStrengthRule,function(j,n){
+		    var level = n.level;
+		    var rules = n.rule;
+		    $.each(rules,function(i,rule){
+			    var index = 0;
+			    //依次编译所有的、有配置(该位置==1)的节点
+			    hasFind = true;
+			    $.each(getFlag(rule.flag),function(k,value){
+				    if(value==1){
+					    val = rule.value[index];
+					    index+=1;
+					    val = val == 0 ? len : (val > len ? len : val);
+					    if(sum1[k] < val){
+					    	hasFind = false;
+					    	return false;
+					    };
+				    };
+			    });
+			    if(hasFind){
+			    	returnLevel = level;
+			    	return false;
+			    };
+		    });
+		    if(hasFind){
+		    	returnLevel = level;
+		    };
+	    });
+	    return returnLevel;
+	},
+	
+	addIdtoValid : function(srcjo,initConfig)
+	{
+		//判断是否有ID
+		var id = srcjo.attr("id");
+		if(!id){
+			//自动生成一个在验证框架中不存在的ID
+			id = "valid_"+Math.ceil(Math.random()*50000000);
+			while($.inArray(id,initConfig.validObjects)!=-1){
+				id = "valid_"+Math.ceil(Math.random()*50000000);
+			};
+			srcjo.attr("id", id);
+			initConfig.validObjects.push(id);
+		}else{
+			//保存控件ID
+			var validIndex = $.inArray(id,initConfig.validObjects);
+			if(validIndex == -1){
+				initConfig.validObjects.push(id);
+			}else{
+				initConfig.validObjects[validIndex] = id;
+			};
+		};
+	}
+};
+
+//每个校验控件必须初始化的,如果cs为空说明没有手动调用formValidator,属于直接调用验证方法,自动执行.
+$.fn.formValidator = function(cs) 
+{
+	var setting = $.extend(true, {}, formValidator_setting, cs || {});
+
+	var initConfig = $("body").data(setting.validatorGroup);
+	//延迟验证
+	if(typeof setting.realTimeValid != "boolean"){//未设定时使用全局值
+		setting.realTimeValid = initConfig.realTimeValid;
+	};
+	//失败时自动获取焦点
+	if(typeof setting.errorFocus != "boolean"){//未设定时使用全局值
+		setting.errorFocus = initConfig.errorFocus;
+	};
+	
+	return this.each(function(e){
+		//保存validatorGroup,用于随时获取全局变量initConfig.
+		var srcjo = $(this);
+		srcjo.data(initdata_name.group,setting.validatorGroup);
+		
+		//设置ID
+		$.formValidator.addIdtoValid(srcjo,initConfig);
+		
+		$.formValidator.appendValid(this,setting);
+		
+		//初始化显示信息
+		$.formValidator.setTipState(srcjo,setting.onShow,"onShow");
+
+		var srcTag = this.tagName.toLowerCase();
+		var defaultval = setting.defaultValue;
+		//处理默认值
+		if(defaultval){
+			srcjo.val(defaultval);
+		};
+		
+		if(srcTag == "input" || srcTag=="textarea"){
+			//注册获得焦点的事件。改变提示对象的文字和样式，保存原值
+			srcjo.on("focus."+$.formValidator.namespaces,function(){
+					$.formValidator.setTipState($(this),setting.onFocus,"onFocus");
+				});
+			srcjo.on("keyup."+$.formValidator.namespaces,function(){
+			        if($(this).data("validatorPasswordIndex") > 0){//为密码强度验证.实时
+						var returnObj = $.formValidator.oneIsValid(id,true);
+						var level = 0;
+						if(returnObj.isValid){
+							level = $.formValidator.passwordValid(this);
+							if(level < 0){
+								level=0;
+							};
+						};
+						if(setting.pwdTipID){//如果设置pwdTipID请补充下passwordStrengthStatusHtml
+							$("#"+setting.pwdTipID).html(setting.passwordStrengthText[level]);
+						};
+		            };
+			    });
+			if(setting.realTimeValid){
+				//注册自定义触发事件(当前可以是blur(默认)和change)。进行校验，改变提示对象的文字和样式；出错就提示处理
+				srcjo.on(setting.triggerEvent+"."+$.formValidator.namespaces, function(){
+					if(initConfig.status=="submiting"){
+						return;//如果正在提交让提交去验证,这里不操作.
+					};
+					var d = $(this);
+					var settings = d.data(initdata_name.setting);
+					if(settings[0].bind==false){
+						return;
+					};
+					//根据配置截掉左右的空格
+					if(settings[0].leftTrim){
+						d.val(d.val().replace(/^\s*/g, ""));
+					};
+					if(settings[0].rightTrim){
+						d.val(d.val().replace(/\s*$/g, ""));
+					};
+					//进行有效性校验.
+					var returnObj = $.formValidator.oneIsValid(this.id,true);
+					if(!returnObj.isValid){
+						var errorMessage = returnObj.errormsg == "" ? returnObj.setting.onError : returnObj.errormsg;
+						//调用定义的失败方法.将错误信息和第一个错误对象,错误信息列表作为参数
+						$.formValidator.setTipState(d,errorMessage,"onError");
+					};
+				});
+			}else{
+				srcjo.on("click."+$.formValidator.namespaces,srcjo.data(initdata_name.setting)[0].successCallback);
+			};
+		}else if (srcTag == "select"){
+			srcjo.on("focus."+$.formValidator.namespaces,function(){
+					$.formValidator.setTipState($(this),setting.onFocus,"onFocus");
+				});
+			if(setting.realTimeValid){
+				//blur应该在change未触发的时候触发,不包括非本框架定义的事件.
+				function dd(e){
+					if(initConfig.status=="submiting"){
+						return;//如果正在提交让提交去验证,这里不操作.
+					};
+					var d = $(this);
+					var returnObj = $.formValidator.oneIsValid(this.id,true);
+					if(!returnObj.isValid){
+						var errorMessage = returnObj.errormsg == "" ? returnObj.setting.onError : returnObj.errormsg;
+						$.formValidator.setTipState(d,errorMessage,"onError");
+					};
+				};
+				//强制使用change,选择项目后触发,blur无法快速检测
+				srcjo.on("change."+$.formValidator.namespaces,dd);
+			}else{
+				srcjo.on("change."+$.formValidator.namespaces,srcjo.data(initdata_name.setting)[0].successCallback);
+			};
+		};
+	});
+};
+//下面的注入验证的方法,setting需每个验证对象不共用,否则一些针对setting的赋值操作容易混淆.
+$.fn.inputValidator = function(controlOptions)
+{
+	return this.each(function(){
+		$.formValidator.appendValid(this,$.extend(true, {}, inputValidator_setting, controlOptions || {}));
+	});
+};
+
+$.fn.compareValidator = function(controlOptions)
+{
+	return this.each(function(){
+		if(controlOptions.dependOthers){//强制关联
+			controlOptions.dependOthers.push($("#"+controlOptions.desID));
+		}else{
+			controlOptions.dependOthers=[$("#"+controlOptions.desID)];
+		}
+		$.formValidator.appendValid(this,$.extend(true, {}, compareValidator_setting, controlOptions || {}));
+	});
+};
+
+$.fn.regexValidator = function(controlOptions)
+{
+	return this.each(function(){
+		$.formValidator.appendValid(this,$.extend(true, {}, regexValidator_setting, controlOptions || {}));
+	});
+};
+
+$.fn.functionValidator = function(controlOptions)
+{
+	return this.each(function(){
+		$.formValidator.appendValid(this,$.extend(true, {}, functionValidator_setting, controlOptions || {}));
+	});
+};
+
+$.fn.ajaxValidator = function(controlOptions)
+{
+	return this.each(function()
+	{
+		$.formValidator.appendValid(this,$.extend(true, {}, ajaxValidator_setting, controlOptions || {}));
+	});
+};
+
+$.fn.passwordValidator = function(controlOptions)
+{
+	return this.each(function()
+	{
+	    $(this).data("validatorPasswordIndex",$.formValidator.appendValid(this,$.extend(true, {}, passwordValidator_setting, controlOptions || {})));
+	});
+};
+
+//指定控件显示通过或不通过样式
+$.fn.defaultPassed = function(onShow)
+{
+	return this.each(function()
+	{
+		var d = $(this);
+		var settings = d.data(initdata_name.setting);
+		var validatorGroup = settings[0].validatorGroup;
+		for ( var i = 1 ; i < settings.length ; i = i+1){   
+			settings[i].isValid = true;
+			$.formValidator.checkValidOrSetOldVal(d,1);//设定默认值,使得比对值时(参数1->2)相等,使之不验证.
+			$.formValidator.checkDependOthers(d,1,settings[i].dependOthers,i);//如果有依赖，标记依赖值，使之不验证.
+			if($("body").data(validatorGroup).mode != "AlertTip"){
+				var lastshowclass = onShow ? initConfig_class.onShow : initConfig_class.onCorrect;
+				var lastshowmsg = onShow ? settings[0].onShow : settings[0].onCorrect;
+				$.formValidator.setTipState(d, lastshowclass, lastshowmsg);
+			};
+		};
+	});
+};
+
+//指定控件不参加校验
+$.fn.unFormValidator = function(unbind)
+{
+	return this.each(function()
+	{
+		var d = $(this);
+	    var setttings = d.data(initdata_name.setting);
+	    if(setttings){
+		    setttings[0].bind = unbind==false?true:false;
+		};
+	});
+};
+
+//销毁对象上的验证,以便重新注入新验证,这不同于临时禁用验证.临时禁用需使用unFormValidator方法.
+$.fn.destroyValidator = function()
+{
+	return this.each(function()
+	{
+		var d = $(this);
+		var settings = d.data(initdata_name.setting);
+		if(!settings||settings.length==0){
+			return;
+		};
+		if(settings[0].validateType='formValidator' && settings[0].realTimeValid){
+			//有开启立即验证,则需移除触发事件,只会移除验证框架注入的事件.
+			for(var i=0;i<settings.length;i=i+1){
+				d.off(settings[i].triggerEvent+"."+$.formValidator.namespaces).off("change."+$.formValidator.namespaces);
+			};
+		};
+		d.removeData(initdata_name.setting).removeData(initdata_name.oldValue);
+	});
+};
+//已注入验证框架的对象被深度克隆时需执行此方法,执行后新对象即可纳入验证，不再需重新绑定验证事件。
+//特别提示:jquery的深度克隆也无法克隆对象上的data数据内的json等object对象,只会是引用原对象
+//例如:$("tr").clone(true).find("[name=yxf]").cloneValidator()
+$.fn.cloneValidator = function()
+{
+	return this.each(function()
+	{
+		var d = $(this);
+		d.removeAttr("id");
+		
+		//jquery的clone后data内还是是跟原来的共享对象(数组内是json对象,单纯的数组复制不会复制json).否则新对象的验证结果等会同步改变到原对象,导致误报结果等
+		var settings = d.data(initdata_name.setting);
+		var newSettings = new Array();
+		for ( var i in settings) {
+			var json = $.extend(true,{},settings[i]||{});
+			//json.isNew = '1111';//测试新旧是否一致的代码
+			//json.isValid_prev=undefined;//清楚可能存在的验证结果.
+			//json.errormsg_prev=undefined;
+			newSettings.push(json);
+		}
+		d.data(initdata_name.setting,newSettings);
+		
+		var validatorGroup = d.data(initdata_name.group);//取得验证组
+		var initConfig = $("body").data(validatorGroup);//取得验证组的初始化信息
+		//设置新ID并加入验证
+		$.formValidator.addIdtoValid(d,initConfig);
+		//清除上次验证结果
+		d.removeData(initdata_name.oldValue);
+	});
+};
+
+})($);
+
+//各种提示应用的样式,非alertTip时使用.
+var initConfig_class = {
+	onShow: "onShow",
+	onFocus: "onFocus",
+	onCorrect: "onCorrect",
+	onEmpty: "onEmpty",
+	onError: "onError",
+	onLoad: "onLoad",
+	ajaxLoading: "ui-autocomplete-loading"//该样式在jquery ui的JS 内.用于原对象,不用于Tip对象
+};
+//一些用于存储数据的变量名
+var initdata_name = {
+	oldValue: "oldValue",	//上次值
+	setting: "settings",		//保存验证的配置
+	depend: "dependOthersValue",		//保存depend对象的值,以便验证是否发生改变
+	group: "validatorGroup"		//记录验证组别
+};
+//初始化参数
+var initConfig_setting = {
+	validatorGroup: "1",		//分组号
+	formId:	"form1",				//表单ID
+	mode: "AlertTip",			//显示模式,AlertTip为弹出错误提示,SingleTip为使用一个dom的innerhtml存放错误提示,FixTip为使用每个对象一个DOM存放错误信息
+	tipId: "errorDiv",			//SingleTip时用于存放提示的dom的ID
+	wideWord: 3,				//wideWord取值只有1,2,3,4.分别对应英文,GBK和UTF-8,超大字符集,表示1个汉字有几个字符
+	onSuccess: function(){		//提交成功的回调函数
+		return true;
+	},
+	onError: function(){		//提交失败的回调函数,仅对AlertTip有效
+		alert(arguments[0]);
+	},
+	onException: function(){  //特别提示,用于验证框架出现严重错误时(非验证不通过时),一般不重定义
+		alert(arguments[0]);
+	},
+	ajaxForm: null,       		//如果不为null，表示整个表单ajax提交
+	submitOnce: false,							//页面是否提交一次，不会停留
+	status: "",					//提交的状态：sumbiting,空
+	validObjects: [],							//参加校验的控件ID集合
+	debug: false,								//调试模式点
+	validateType: "initConfig",
+	realTimeValid: false,		//全局配置是否及时验证,默认否,有值true/false时将覆盖formValidator_setting的值,但formValidator()显式设置时除外,它会使用设定值.
+	errorFocus : true			//第一个错误的控件获得焦点,用法同realTimeValid
+};
+
+var formValidator_setting = {
+	validatorGroup: "1",
+	empty: false,
+	onShow: "",				//如果该值为false或空,不显示该提示
+	onFocus: "",
+	onCorrect: "",
+	onEmpty: "",
+	//onError : "",			//由具体的某一个验证办法设置.
+	tipId: "",				//mode=FixTip时用于存放提示的dom的ID,如不设置该值则自动使用id+"_tip"或name+"_tip"(ID为自动产生时)
+	tipModel: "span",
+	defaultValue: null,
+	bind: true,
+	validateType: "formValidator",
+	triggerEvent: "blur",
+	//以下2个参数一般用于select,选中后验证,通过后执行successCallback(一般应包含判断执行errorCallback的部分,因为选择空也有可能通过验证),不通过时恢复上次值后执行errorCallback(一般是清空successCallback产生的效果)
+	successCallback: $.noop,	//某对象的验证都通过时调用的回调方法,如realTimeValid=false,则作为change事件或blur事件直接触发
+	errorCallback: $.noop	//某对象的验证不通过时调用的回调方法,如realTimeValid=false则无意义
+	//realTimeValid:	undefined,	//是否实时验证,默认不实时,有些元素需要实时时请设置true
+	//errorFocus : undefined //结合initConfig中errorFocus 完成任意元件的验证不通过时不获取焦点.
+};
+
+var inputValidator_setting = {
+	isValid: false,
+	type: "size",
+	wideWord: 0,				//=0时使用init的值
+	min: 0,
+	max: 99999,
+	onError: "输入错误",
+	validateType: "inputValidator",
+	empty: {
+		leftEmpty:false,
+		rightEmpty:false,
+		autoReplaceLR:true, //自动去掉首尾空格
+		emptyError:"不能以空格开头和结尾"
+	}
+};
+
+var compareValidator_setting = {
+	isValid: false,
+	desID: "",//被比较对象的id
+	operateor: "=",//比较方式,支持>=,<=,>,<,!=等值比较符号
+	onError: "输入错误",
+	validateType: "compareValidator"
+};
+
+var regexValidator_setting = {
+	isValid: false,
+	regExp: "",
+	param: "i",
+	compareType: "||",//可以为&&,||两者之一,用于regExp数组时多个正则验证是或和并
+	onError: "输入的格式不正确",
+	validateType: "regexValidator"
+};
+
+var ajaxForm_setting = {
+	type: "GET",
+	url: window.location["href"],//提交地址,默认当前页面.
+	dataType: "html",
+	timeout: 10000,
+	data: null,
+	async: true,
+	cache: false,
+	buttons: null,
+	beforeSend: function(){
+		return true;
+	},
+	success: function(){
+		return true;
+	},
+	complete: $.noop,
+	error: $.noop,
+	processData: true
+};
+
+var ajaxValidator_setting = {
+	isValid: false,
+	status: "unValidate",//标记本次ajax验证的进行状态,而不是成功与否.值:validating,validated,unValidate
+	randNumberName: "rand",//该参数决定了ajax是否缓存(url相同时的那种),默认不缓存
+	onError: "服务器校验没有通过",
+	onWait: "正在等待服务器返回数据",
+	validateType: "ajaxValidator"
+};
+$.extend(true,ajaxValidator_setting,ajaxForm_setting);//让ajaxValidator_setting具有一些ajax需要的参数
+
+var functionValidator_setting = {
+	isValid: false,
+	fun: function(){
+		this.isValid = true;
+	},
+	validateType: "functionValidator",
+	onError: "输入错误"
+};
+
+var passwordValidator_setting = {
+	isValid: true,
+	compareID: "",
+	pwdTipID: "",
+	validateType: "passwordValidator",
+	onErrorContinueChar: "密码字符为连续字符不被允许",
+	onErrorSameChar: "密码字符都相同不被允许",
+	onErrorCompareSame: "密码于用户名相同不被允许",
+	//初始状态，加其它几种状态
+	passwordStrengthText: ['密码强度：弱','密码强度：中','密码强度：强'],
+	//密码强度校验规则(flag=1(数字)+2(小写)+4(大写)+8(特殊字符)的组合，value里的0表示跟密码一样长,1表示起码1个长度)
+	passwordStrengthRule: [
+		{
+			level: 1,
+			rule: [
+			   {flag:1,value:[0]},			//数字
+			   {flag:2,value:[0]},				//小写字符
+			   {flag:4,value:[0]}			//大写字符
+			  ]
+		},
+		{
+			level:2,
+			rule:[
+			   {flag:8,value:[0]},				//特符
+			   {flag:9,value:[1,1]},		//数字(>=1)+特符>=1)
+			   {flag:10,value:[1,1]},		//小写(>=1)+特符>=1)
+			   {flag:12,value:[1,1]},		//大写(>=1)+特符>=1)
+			   {flag:3,value:[1,1]},	//数字(>=1)+小写(>=1)
+			   {flag:5,value:[1,1]},	//数字(>=1)+大写(>=1)
+			   {flag:6,value:[1,1]}			//小写(>=1)+大写(>=1)
+			  ]
+		},
+		{
+			level:3,
+			rule:[
+			   {flag:11,value:[1,1,1]},	//数字(>=1)+小写(>=1)+特符(>=1)
+			   {flag:13,value:[1,1,1]},	//数字(>=1)+大写(>=1)+特符(>=1)
+			   {flag:14,value:[1,1,1]},	//小写(>=1)+大写(>=1)+特符(>=1)
+			   {flag:7,value:[1,1,1]}	//数字(>=1)+小写(>=1)+大写(>=1)
+			  ]
+		}
+	]
+};

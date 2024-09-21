@@ -1,0 +1,2074 @@
+var maskArr=["Card","Zjhm","Phone","Mobile","card","zjhm","phone","mobile"];//需要遮罩的字段名称,注意需要首字母需要大写,或者不大写,根据实际的id来确认
+$(function () {
+	//给部分字段增加遮罩
+	maskDiv();
+	maskInput();
+});
+
+/***详情页面对部分字段遮罩***/
+function maskDiv(){
+	$(".maskDiv").each(function(){
+		var dom=$(this);
+		dom.text(mask(dom.text()));
+	});
+}
+
+/**
+ *  对input元素指定的需要遮罩的进行处理
+ */
+function maskInput(){
+	for(var i in maskArr){
+		var s=maskArr[i];
+		//对指定的包含元素进行遮罩处理
+		var inputDom=$("input[id*="+s+"]");
+		inputDom.each(function(){
+			//进行处理
+			var a=$(this);
+			//只读的才处理
+			if(a.attr("readonly") && a.attr("readonly")==true){
+				var domId=a.prop("id");
+				//非遮罩层且有值的才处理
+				if(domId.indexOf("Mask")==-1){
+					if(a.val()!=""){
+						var domMask=a.clone();
+						a.hide();
+						domMask.prop("id",domId+"Mask");
+						domMask.prop("name",domId+"Mask");
+						domMask.val(mask(a.val()));
+						domMask.appendTo(a.parent());
+					}
+				}
+			}
+		});
+	}
+}
+
+/**
+ * 判断是否需要遮罩
+ * @param s
+ */
+function hasMask(s){
+	for(var i in maskArr){
+		if(s.toLowerCase().indexOf(maskArr[i].toLowerCase())!=-1){
+			return true;
+		}
+	}
+}
+
+/**
+ * 对字符遮罩,前两位+最后一位,如果长度小于4则只遮罩前1位
+ */
+function mask(s){
+	var r="";
+	if(s){
+		var len=s.length;
+		if(len==1){
+			r="*";
+		}else if(len<4){
+			r="*"+s.substring(1);
+		}else{
+			var x="";
+			for(var i=0; i<len-3; i++){
+				x=x+"*";
+			}
+			r=s.substring(0,2)+x+s.substring(len-1,len);
+		}
+	}
+	return r;
+}
+
+//cors: post请求首次需先请求服务器允许跨域的情况(option请求)。
+$.postRest = function (url, data, func, paras){
+	//将url默认增加charset=utf-8,来解决中文乱码问题syj20170622
+	/*if(url.indexOf("charset")==-1){
+		if(url.indexOf("?")==-1){
+			url=url+"";
+		}else{
+			url=url+"&charset=utf-8";
+		}
+	}*/
+	paras = $.extend(true,{
+		type:"post",
+		async:true,
+		dataType:"json",
+		cache: true,
+		timeout : 50000,//单位毫秒
+		error:$.noop()
+	},paras||{});
+	$.ajax({
+		url: url,
+		type: paras.type,
+		data: data,
+		async: paras.async,
+		cache: paras.cache,
+		dataType: paras.dataType,
+		timeout : paras.timeout, //超时时间设置，单位毫秒
+		success: func,//data, textStatus, jqXHR
+		error: paras.error,
+		statusCode: {
+			401: function() {//有token但请求的url不在授权列表内
+				alert('访问未被授权.');
+			},
+			403: function() {//使用403来识别是否登陆
+				try {
+					showLoginDialog();
+				} catch (e) {
+					alert('未登陆,请重新登陆.');//此处可能增加JS登陆框
+				}
+			},
+			404: function() {
+				alert('页面未找到.');
+			},
+			405: function() {
+				alert('错误的请求方式[GET/POST].');
+			},
+			500: function() {
+				alert('服务器发生内部错误.');
+			}
+		}
+	});
+};
+/***************以下为公共的封装***************/
+//需jquery ui dialog支持
+function showLoginDialog(){
+	var html = '<div class="login-box">'+
+	'<div class="login-box-body">'+
+		'<p class="login-box-msg text-red" id="rlogin_msg">未登陆或登陆已超时</p>'+
+		'<form id="rlogin-form" method="post" target="rlogin_iframe">'+
+			'<div class="form-group has-feedback">'+
+				'<input type="text" id="username" name="username" class="form-control" placeholder="请输入用户名" required="required"/>'+
+				'<span class="glyphicon glyphicon-user form-control-feedback"></span>'+
+			'</div>'+
+			'<div class="form-group has-feedback">'+
+				'<input type="password" id="password" name="password" class="form-control" placeholder="请输入密码" required="required"/>'+
+				'<span class="glyphicon glyphicon-lock form-control-feedback"></span>'+
+			'</div>'+
+			'<div class="form-group has-feedback">'+
+			'<input type="text" id="validateCode" name="validateCode" class="form-control w60" placeholder="请输入验证码" required="required" placeholder="请输入密码"/>'+
+			'<a href="javascript:" class="refresh-code"><span class="ver-img">&nbsp;&nbsp;<img id="random" onclick="refreshVali()" src="/s/verifyCode?t='+new Date().getTime()+'" style="width:65px;"></span></a>'+
+			'</div>'+
+			'<div class="row text-center">'+
+				'<button type="button" class="btn btn-primary btn-block btn-flat" onclick="rlogin()">登 陆</button>'+
+			'</div>'+
+		'</form>'+
+	'</div>'+
+	'</div>';
+	//加一个隐藏的iframe用于响应form请求
+	ShowDialog({"html":html,title:"用户登陆",height:400,width:450});
+}
+function rlogin(){
+	var u = $("#username").val();
+	if(u==""){
+		alert("请输入用户名");return;
+	}
+	var p = $("#password").val();
+	if(p==""){
+		alert("请输入密码");return;
+	}
+	var p = $("#validateCode").val();
+	if(p==""){
+		alert("请输入验证码");return;
+	}else{
+		//加密提交
+		$("#password").val(passwordJiami($("#password").val()));
+	}
+	var data = serializeForm("rlogin-form", {"charset":"utf-8","u_":"1"});
+	$.postRest(ctx+"/lte/rlogin", data, function(rs){
+		if(rs.code==1){
+			$("#rlogin_msg").removeClass("text_red").addClass("text_green").text(rs.info);
+			//关闭本弹窗
+			window.setTimeout(function(){
+				$("#dialog_ifr_html").dialog("close");
+			}, 1000);
+		}else{
+			$("#rlogin_msg").removeClass("text_green").addClass("text_red").text(rs.info);
+		}
+	});
+}
+
+function passwordJiami(password){
+	if(bendiCode=="110000000"){
+		var msgData = CryptoJS.enc.Utf8.parse(password);
+		var md, sm3keycur = new SM3Digest();
+		msgData = sm3keycur.GetWords(msgData.toString());
+		sm3keycur.BlockUpdate(msgData, 0, msgData.length);
+		var c3 = new Array(32);
+		sm3keycur.DoFinal(c3, 0);
+		var hashHex = sm3keycur.GetHex(c3).toString().toUpperCase();
+		return hashHex;
+	} else{
+		return $.md5(password).toUpperCase();
+	}
+}
+
+function refreshVali(){
+	$("#random").attr("src",ctx+"/s/verifyCode?d=" + new Date().getTime());
+}
+
+/**扩展
+* 参数可以是注入事件(带data),也可以直接是data(跟注入时data一致)
+*大多数参数跟ui.dialog一致,有些原dialog参数被设固定值,因此指定这些参数会无效,
+*相比增加了以下参数:
+*leftTop:为true时弹出框将左上角显示,其他值居中显示
+*showClose:为false时隐藏标题栏上的关闭X,其他值为显示
+*hiddenTitle:为true时隐藏标题栏(同时隐藏关闭X),其他值为显示
+*注意:隐藏关闭按钮或隐藏标题时,不能通过按esc键关闭.
+*/
+function ShowDialog(e) {
+	//默认值
+	var data = {
+		domId: "dialog_ifr_html",
+		url:"",//当弹窗中要包含页面时,必须指定该页面地址
+		html:"",//未指定url时有效,将显示在弹窗中,可以是jquery对象也可以是html代码,html中有事件推荐使用jquery对象.
+		modal:true,//是否以模的形式运行,模形式会遮罩页面
+		title:"",//标题,为空时将隐藏标记和关闭按钮.
+		height:'98%',//默认高度
+		width:'98%',
+		//parentIframe:'irShow',//父级iframe id,用于本dialog高于本页面时自动撑开本页面所在的iframe,避免显示滚动条
+		positionOf: window,//本dialog的postion属性(相对于什么对齐),默认为window,值可以为dom jquery对象及jquery selector
+		dialogClass:"",//额外的dialog样式,该参数在jquery ui 1.12过时,被classes取代
+		showClose:true,//是否显示关闭按钮(右上角),默认显示,隐藏时esc键不能关闭弹窗
+		draggable:true,//是否可拖拽弹窗,默认能拖拽
+		resizable:false,//是否可缩放弹窗,默认不能
+		autoResize:true,//如果窗口缩放,本dialog自动调整大小(当宽高为百分比形式时)
+		
+		close:$.noop(),//当弹窗关闭时的回调方法
+		beforeClose: function(){//弹窗关闭事件被触发,关闭前的操作,阻止下次打开仍显示上次内容(虽然一会就刷新到新的页).有些用法要看api
+			$(this).empty();
+		}
+	};
+	//事件调用,this=点击对象,传参调用,this=window,使用positionOf可强制指定(data.leftTop固定相对window).
+	/*if(!data.positionOf){
+		data.positionOf = this;
+	}*/
+	$.extend(true,data,(e.data?e.data:e)||{});
+	//如果都未设置,则尝试计算url
+	if(data.url==""&&data.html==""){
+		data.url = $(this).attr("href");
+	}
+	//对于使用模板引擎,可能同一个资源有多种装配情况,此处需要使用dialog装配方式20170630
+	if(data.url && data.url.indexOf("model=1")==-1){
+		data.url+=(data.url.indexOf("?")==-1?"?model=1":"&model=1");
+	}
+	//如果设置的高宽是百分比,则计算具体值ui.dialog仅支持auto和数字高度,相对当前窗口或父窗口20170625
+
+	//如果设置的高宽是百分比,则计算具体值ui.dialog仅支持auto和数字高度,相对当前窗口或父窗口
+	var canFit = true;//如果是非百分比的形式,则不自动随窗口缩放调整大小
+	var fit_data = {width: data.width,height: data.height}; //存档参数
+	if((data.height+"").indexOf("%")!=-1){
+		data.height = $(window).height()*parseFloat(data.height)/100;
+	}else{
+		canFit = false;
+	}
+	if((data.width+"").indexOf("%")!=-1){
+		data.width = $(window).width()*parseFloat(data.width)/100;
+	}else{
+		canFit = false;
+	}
+	var id = data.domId;
+	var diag = $("#" + id);
+	if (diag.length > 0) {
+		diag.dialog("option", "modal", data.modal);
+		diag.dialog("option", "title", data.title);
+		diag.dialog("option", "height", data.height);
+		diag.dialog("option", "width", data.width);
+		diag.dialog("option", "maxHeight", data.maxHeight);
+		diag.dialog("option", "maxWidth", data.maxWidth);
+		diag.dialog("option", "dialogClass", data.dialogClass);
+		diag.dialog("option", "close", data.close);
+		diag.dialog("option", "beforeClose", data.beforeClose);
+		diag
+				.dialog(
+						"option",
+						"closeOnEscape",
+						(data.showClose == false || data.title=="") ? false
+								: true);
+		if (data.url) {
+			//检查是否已有iframe，因为在html和url切换
+			var frame = diag.find('iframe');
+			if(frame.length==0){
+				diag.css("overflow", "hidden");
+				frame = $("<iframe style='width:100%;height:100%;margin:0;' frameborder='0' scrolling='auto'></iframe>");
+				frame.attr('src', data.url);
+				frame.css("text-align", "center");
+				diag.empty().append(frame);//移除可能存在的html
+			}else{
+				frame.attr('src', data.url);
+			}
+		} else {
+			if(data.html.jquery){
+				diag.empty().append(data.html);//有无事件都能使用这个,jquery对象.
+			}else{
+				diag.html(data.html);//无事件时
+			}
+		}
+	} else {
+		diag = $("<div id='" + id + "'></div>");
+		if (data.url) {
+			diag.css("overflow", "hidden");
+			var frame = $("<iframe style='width:100%;height:100%;margin:0;' frameborder='0' scrolling='auto' allowtransparency='true'></iframe>");
+			frame.attr('src', data.url);
+			frame.css("text-align", "center");
+			diag.append(frame);
+		} else {
+			if(data.html.jquery){
+				diag.empty().append(data.html);//有无事件都能使用这个,jquery对象.
+			}else{
+				diag.html(data.html);//无事件时
+			}
+		}
+		
+		diag
+				.dialog( {
+					autoOpen : false,
+					dialogClass : data.dialogClass,
+					modal : data.modal,
+					draggable : data.draggable,
+					resizable : data.resizable,
+					title : data.title,
+					height : data.height,
+					width : data.width,
+					maxHeight : data.maxHeight,
+					maxWidth : data.maxWidth,
+					beforeClose : data.beforeClose,
+					close : data.close,
+					closeOnEscape : (data.showClose == false || data.title=="") ? false : true
+				});
+	}
+	if (data.leftTop) {
+		diag.dialog("option", "position", {
+			my : "left top",
+			at : "left top",
+			of: window
+		});
+	}else{//恢复
+		diag.dialog("option", "position", {
+			my: "center",
+			at: "center",
+			of: data.positionOf
+		});
+	}
+	//这个参数必须放在dialog构建之后配置,dialog构造会清空对象的data内容20170623
+	if(canFit && data.autoResize){
+		diag.data("fit_data",fit_data);
+		$(window).resize(dialogResize);
+	}
+	var widget = diag.dialog('widget');
+    widget.find(".ui-dialog-titlebar-close").hide();	//隐藏关闭按钮
+    if(data.showClose == true && widget.children(".box-close").length==0){
+        //添加自定义关闭按钮
+        //点击关闭后需要移出掉diag syj20170930
+        widget.append("<a href='#D2E' class='box-close' title='关闭菜单'><span class='icon-123'></span></a>")
+            .find(".box-close").click(function(){$(this).parent().find(".ui-dialog-titlebar-close").click();diag.remove();});
+    }
+    //判断title
+	if (data.title==""||data.title==null){
+		widget.find(".ui-dialog-titlebar").hide();
+		widget.find(".ui-dialog-content").addClass('ui-corner-all');
+	}else{
+		widget.find(".ui-dialog-titlebar").show();	//显示title
+//		widget.find(".ui-dialog-titlebar").show();	//要显示出菜单按钮
+//		widget.find(".box-close").remove();
+	}
+	diag.dialog("open");
+	return false;//阻止其他事件和href
+};
+//窗口缩放时缩放dialog
+function dialogResize(){
+	var dialogs = $(".ui-dialog");
+	dialogs.each(function(){
+		var diag = $("#"+$(this).attr("aria-describedby"));
+		var fitdata = diag.data("fit_data");
+		if(fitdata){
+			var fitheight = $(window).height()*parseFloat(fitdata.height)/100;
+			var fitwidth = $(window).width()*parseFloat(fitdata.width)/100;
+			diag.dialog("option", "height", fitheight);
+			diag.dialog("option", "width", fitwidth);
+			//diag.dialog("open"); //会导致关闭的dialog自动打开
+		}
+	});
+}
+
+//dataTables Chinese
+var dataTable_language = {
+		"loadingRecords" : "正在加载数据...",
+		"processing" : "正在渲染数据...",
+		"lengthMenu" : "显示_MENU_条 ",
+		"zeroRecords" : "没有您要搜索的内容",
+		"emptyTable" : "未找到任何记录",
+		"info" : "当前为第_START_ - _END_ 条记录,共 _TOTAL_ 条",
+		"infoEmpty" : "记录数为0",
+		"infoFiltered" : "(全部记录数 _MAX_ 条)",
+		"infoPostFix" : "",
+		"search" : "搜索",
+		//"url" : "",
+		"paginate" : {
+			"first" : "首页",
+			"previous" : "上一页 ",
+			"next" : "下一页 ",
+			"last" : "尾页 "
+		}
+	};
+/**
+ * 将表单的参数添加到data_(json对象),用于ajax提交
+ * @param formId
+ * @param data_
+ * @returns
+ */
+function serializeForm(formId,data_){
+	var mydata = $("#"+formId).serializeArray(); //自动将form表单封装成json
+	for(var i in mydata){//{name : xx , value : xxx}
+		var d = mydata[i], key = d["name"], value = d["value"];
+		if(data_[key]){
+			var arr;
+			if($.isArray(data_[key])){
+				arr = data_[key];
+			}else{
+				arr = [data_[key]];
+			}
+			arr.push(value);
+			data_[key] = arr;
+		}else{
+			data_[key] = value;
+		}
+	}
+	return data_;
+}
+
+/**
+ * 获取当前静态页面的参数
+ * 返回值和使用方法类似java request的getparamater
+ * 不同: 当取得的为数组(length>1)时调用toString()返回(逗号分隔每个元素)
+ * @param {Object} name
+ * @return {TypeName} 
+ */
+function getPara(name,search){
+	var p = getParas(name,search);
+	if(p.length==0){
+		return null;
+	}else if(p.length==1){
+		return p[0];
+	}else{
+		return p.toString();
+	}
+}
+
+/**获取当前静态页面的参数
+ * 返回值和使用方法类似java request的getparamaterValues
+ * @param {Object} name 要取出的参数名,可以在参数字符串中重复出现
+ * @param {Object} search 手工指定要解析的参数字符串,默认为当前页面后跟的参数
+ * @return {TypeName} 
+ */
+function getParas(name,search){
+	if(!search){
+		search = window.location.search.substr(1);//1.html?a=1&b=2
+	}
+	var para = [];
+	var pairs = search.split("&");//a=1&b=2&b=2&c=2&b=2
+	for(var i=0;i<pairs.length;i=i+1){
+		var sign = pairs[i].indexOf("="); 
+		if(sign == -1){//如果没有找到=号，那么就跳过，跳到下一个字符串（下一个循环）。	
+			continue; 
+		}
+        var aKey = pairs[i].substring(0,sign);
+        if(aKey==name){
+        	para.push(unescape(pairs[i].substring(sign+1)));
+        }
+    }
+	return para;
+}
+
+/***********************各个页面要调用的**********************/
+//省份数据
+var provinceData=[
+     {"provinceId":"110000000","provinceName":"北京市"},
+     {"provinceId":"120000000","provinceName":"天津市"},	
+     {"provinceId":"130000000","provinceName":"河北省"},
+     {"provinceId":"140000000","provinceName":"山西省"},
+     {"provinceId":"150000000","provinceName":"内蒙古自治区"},
+     {"provinceId":"210000000","provinceName":"辽宁省"},
+     {"provinceId":"220000000","provinceName":"吉林省"},
+     {"provinceId":"230000000","provinceName":"黑龙江省"},
+     {"provinceId":"310000000","provinceName":"上海市"},
+     {"provinceId":"320000000","provinceName":"江苏省"},
+     {"provinceId":"330000000","provinceName":"浙江省"},
+     {"provinceId":"340000000","provinceName":"安徽省"},
+     {"provinceId":"350000000","provinceName":"福建省"},
+     {"provinceId":"360000000","provinceName":"江西省"},
+     {"provinceId":"370000000","provinceName":"山东省"},
+     {"provinceId":"410000000","provinceName":"河南省"},
+     {"provinceId":"420000000","provinceName":"湖北省"},
+     {"provinceId":"430000000","provinceName":"湖南省"},
+     {"provinceId":"440000000","provinceName":"广东省"},
+     {"provinceId":"450000000","provinceName":"广西壮族自治区"},
+     {"provinceId":"460000000","provinceName":"海南省"},
+     {"provinceId":"500000000","provinceName":"重庆市"},
+     {"provinceId":"510000000","provinceName":"四川省"},
+     {"provinceId":"520000000","provinceName":"贵州省"},
+     {"provinceId":"530000000","provinceName":"云南省"},
+     {"provinceId":"540000000","provinceName":"西藏自治区"},
+     {"provinceId":"610000000","provinceName":"陕西省"},
+     {"provinceId":"620000000","provinceName":"甘肃省"},
+     {"provinceId":"630000000","provinceName":"青海省"},
+     {"provinceId":"640000000","provinceName":"宁夏回族自治区"},
+     {"provinceId":"650000000","provinceName":"新疆维吾尔自治区"}/*,
+     {"provinceId":"710000000","provinceName":"台湾省"},
+     {"provinceId":"810000000","provinceName":"香港特别行政区"},
+     {"provinceId":"820000000","provinceName":"澳门特别行政区"},
+     {"provinceId":"990000000","provinceName":"海外"}*/
+ ];
+//省的简称
+var provinceJiancheng={
+		 "11":"京",		//北京市
+	     "12":"津",		//天津市
+	     "13":"冀",		//河北省
+	     "14":"晋",		//山西省
+	     "15":"内蒙古",	//内蒙古自治区
+	     "21":"辽",		//辽宁省
+	     "22":"吉",		//吉林省
+	     "23":"黑",		//黑龙江省
+	     "31":"沪",		//上海市
+	     "32":"苏",		//江苏省
+	     "33":"浙",		//浙江省
+	     "34":"皖",		//安徽省
+	     "35":"闽",		//福建省
+	     "36":"赣",		//江西省
+	     "37":"鲁",		//山东省
+	     "41":"豫",		//河南省
+	     "42":"鄂",		//湖北省
+	     "43":"湘",		//湖南省
+	     "44":"粤",		//广东省
+	     "45":"桂",		//广西壮族自治区
+	     "46":"琼",		//海南省
+	     "50":"渝",		//重庆市
+	     "51":"川",		//四川省
+	     "52":"贵",		//贵州省
+	     "53":"云",		//云南省
+	     "54":"藏",		//西藏自治区
+	     "61":"陕",		//陕西省
+	     "62":"甘",		//甘肃省
+	     "63":"青",		//青海省
+	     "64":"宁",		//宁夏回族自治区
+	     "65":"新"		//新疆维吾尔自治区
+};
+
+/**
+ * 选择区划然后到单位,分省,市,区,街道,派出所
+ * 依赖select2插件
+ * @param e
+ */
+function chooseAreaAndComp(e){
+	var data={
+			domId:"",//dom元素id,必须设置
+			level:5,	//区划级别,默认为5选到企业,1省,2市,3区/县,4街道,5企业,设置对应level显示对应元素
+			inputName:{
+				province:"province", //省
+				city:"city",//市
+				county:"county",//区
+				street:"street",//街道
+				compId:"compId"//单位
+			},	//各个select的name值默认
+			inputId:{
+				province:"province", //省
+				city:"city",//市
+				county:"county",//区
+				street:"street",//街道
+				compId:"compId"//单位
+			},	//各个select的id值默认,这个和inputName参数是为了能让同一个页面多次使用设置name相同,而id不同
+			display:{
+				province:1, //省,-1为不添加到页面,0为隐藏,1为显示,下面含义相同
+				city:1,//市
+				county:1,//区
+				street:1,//街道
+				compId:1//单位
+			},//各个元素是否隐藏
+			width:{
+				province:"150px", //省,长度带上px或百分比数字
+				city:"150px",//市
+				county:"150px",//区
+				street:"150px",//街道
+				compId:"150px"//单位
+			},//各元素长度
+			className:{
+				province:"", //省
+				city:"",//市
+				county:"",//区
+				street:"",//街道
+				compId:""//单位
+			},//各元素样式名 
+			defaultValue:{		//默认值,当给出默认值时,则自动选中默认的区划id即区划编码
+				province:"", //省
+				city:"",//市
+				county:"",//区
+				street:""//街道
+			},
+			disabled:{			//省、市、区、街道是否可选
+				province:false, //省
+				city:false,//市
+				county:false,//区
+				street:false//街道
+			},
+			paras:{},	//用于控制是否是同步还是异步加载,默认异步加载,如果要设置为同步,请设置paras里面的值async:false
+			regiUrl:"/common/s/regi", //查询区划的url
+			compUrl:"/common/authc/comp", //查询单位的url
+			callback:$.noop() //回调函数
+	};
+	$.extend(true,data,(e.data?e.data:e)||{}); //深度覆盖参数
+	if(data.domId==undefined || data.domId==""){
+		alert("区划选择这里请务必设置元素Id");
+		return;
+	}
+	//level只能1到5之间
+	if(data.level<1 || data.level>5){
+		data.level=5;
+	}
+	var cityOption='<option value="">请选择市</option>';
+	var countyOption='<option value="">请选择区(县)</option>';
+	var streetOption='<option value="">请选择街道</option>';
+	var selectProvince='<select'+(data.className.province?' class="'+data.className.province+'"':'')+' style="width:'+data.width.province+';'+(data.display.province==0?'display:none':'')+'" name="'+data.inputName.province+'" id="'+data.inputId.province+'"'+(data.disabled.province?' disabled="disabled"':'')+'><option value="">请选择省份</option></select>&nbsp;'; //省select元素
+	var selectCity='<select'+(data.className.city?' class="'+data.className.city+'"':'')+' style="width:'+data.width.city+';'+(data.display.city==0?'display:none':'')+'" name="'+data.inputName.city+'" id="'+data.inputId.city+'"'+(data.disabled.city?' disabled="disabled"':'')+'>'+cityOption+'</select>&nbsp;'; //市select元素
+	var selectCounty='<select'+(data.className.county?' class="'+data.className.county+'"':'')+' style="width:'+data.width.county+';'+(data.display.county==0?'display:none':'')+'" name="'+data.inputName.county+'" id="'+data.inputId.county+'"'+(data.disabled.county?' disabled="disabled"':'')+'>'+countyOption+'</select>&nbsp;'; //区(县)select元素
+	var selectStreet='<select'+(data.className.street?' class="'+data.className.street+'"':'')+' style="width:'+data.width.street+';'+(data.display.street==0?'display:none':'')+'" name="'+data.inputName.street+'" id="'+data.inputId.street+'"'+(data.disabled.street?' disabled="disabled"':'')+'>'+streetOption+'</select>&nbsp;'; //街道select元素
+	var inputCompId='<select'+(data.className.compId?' class="'+data.className.compId+'"':'')+' style="width:'+data.width.compId+';'+(data.display.compId==0?'display:none':'')+'" type="text" name="'+data.inputName.compId+'" id="'+data.inputId.compId+'"></select>'; //单位名
+	var dom=$("#"+data.domId); //dom元素
+	dom.empty(); //先清空再增加,防止重复问题
+	if(data.level>=1 && data.display.province>=0){
+		dom.append(selectProvince);
+	}
+	if(data.level>=2 && data.display.city>=0){
+		dom.append(selectCity);
+	}
+	if(data.level>=3 && data.display.county>=0){
+		dom.append(selectCounty);
+	}
+	if(data.level>=4 && data.display.street>=0){
+		dom.append(selectStreet);
+	}
+	if(data.level>=5 && data.display.compId>=0){
+		dom.append(inputCompId);
+	}
+	var domProvince=dom.find("#"+data.inputId.province); //对应的省元素
+	var domCity=dom.find("#"+data.inputId.city); //对应的市元素
+	var domCounty=dom.find("#"+data.inputId.county); //对应的区(县)元素
+	var domStreet=dom.find("#"+data.inputId.street); //对应的街道元素
+	var domCompId=dom.find("#"+data.inputId.compId); //对应的单位id元素
+	for(var i in provinceData){
+		domProvince.append('<option value="'+provinceData[i].provinceId+'">'+provinceData[i].provinceName+'</option>');
+	}
+	//注入选择事件
+	domProvince.change(function(){
+		var regiId=$(this).val();
+		domCity.empty().append(cityOption);
+		domCounty.empty().append(countyOption);
+		domStreet.empty().append(streetOption);
+		domCompId.val("");
+		domCompId.text("");
+		if(regiId!=""){
+			areaByRegi(data.regiUrl,{regiId:regiId},domCity,data.paras);
+		}
+	});
+	domCity.change(function(){
+		var regiId=$(this).val();
+		domCounty.empty().append(countyOption);
+		domStreet.empty().append(streetOption);
+		domCompId.val("");
+		domCompId.text("");
+		if(regiId!=""){
+			areaByRegi(data.regiUrl,{regiId:regiId},domCounty,data.paras);
+		}
+	});
+	domCounty.change(function(){
+		var regiId=$(this).val();
+		domStreet.empty().append(streetOption);
+		domCompId.val("");
+		domCompId.text("");
+		if(regiId!=""){
+			areaByRegi(data.regiUrl,{regiId:regiId},domStreet,data.paras);
+		}
+	});
+	//街道清空compId值
+	domStreet.change(function(){
+		domCompId.val("");
+		domCompId.text("");
+	});
+	//如果有默认值,则选中默认值
+	if(data.defaultValue.province!=""){
+		domProvince.val(data.defaultValue.province).change();
+	}
+	if(data.defaultValue.city!=""){
+		domCity.val(data.defaultValue.city).change();
+	}
+	if(data.defaultValue.county!=""){
+		domCounty.val(data.defaultValue.county).change();
+	}
+	if(data.defaultValue.street!=""){
+		domStreet.val(data.defaultValue.street).change();
+	}
+	domCompId.select2({
+        language: "zh-CN",	//汉化
+       // theme: "classic", //主题
+        ajax: {
+            url: data.compUrl,
+            dataType: 'json',
+            delay: 250,
+            data: function (params) {
+            	params.regiId=function(){
+                	//优先取街道,然后县,再区,最后省
+                	if(domStreet.length>0 && domStreet.val()!=""){
+                		return domStreet.val();
+                	}else if(domCounty.length>0 && domCounty.val()!=""){
+                		return domCounty.val();
+                	}else if(domCity.length>0 && domCity.val()!=""){
+                		return domCity.val();
+                	}else if(domProvince.length>0 && domProvince.val()!=""){
+                		return domProvince.val();
+                	}else{
+                		return "";
+                	}
+            	};
+                return {
+                    term: params.term, // search term
+                    page: params.page?params.page:1,
+                    regiId: params.regiId
+                };
+            },
+            processResults: function (data, params) {
+                params.page = params.page || 1;
+                var rs = data.data;
+                var total = rs.pop().total;
+                return {
+                    results: data.items || rs, //必须用data.data因为后返回的这样的
+                    pagination: {
+                        more: (params.page * 10) < total
+                    }
+                };
+            },
+            cache: true
+        },
+        escapeMarkup: function (markup) { return markup; }, // let our custom formatter work
+        minimumInputLength: 1, //至少输入一个字符
+        templateResult: formatRepoProvince, // omitted for brevity, see the source of this page
+        templateSelection: formatRepoProvince // 写数据样式
+    });
+}
+
+/**
+ * 选择物品
+ */
+function chooseWp(e){
+	var data = {
+			domId:"",//dom元素id,必须设置
+			inputName: "wupinId",	//各个select的name值默认
+			inputId: "wupinId",	//各个select的id值默认,这个和inputName参数是为了能让同一个页面多次使用设置name相同,而id不同
+			width: "150px",//各元素长度
+			className: "",//各元素样式名 
+			wupinUrl:"/common/authc/wupin", //查询物品的url
+			callback:$.noop(), //回调函数
+			minimumInputLength:1 //至少输入字符数
+	};
+	$.extend(true,data,(e.data?e.data:e)||{}); //深度覆盖参数
+	if(data.domId==undefined || data.domId==""){
+		alert("物品选择这里请务必设置元素Id");
+		return;
+	}
+	var inputWupinId='<select'+(data.className?' class="'+data.className+'"':'')+' style="width:'+data.width+'" type="text" name="'+data.inputName+'" id="'+data.inputId+'"></select>'; //物品名
+	var dom=$("#"+data.domId); //dom元素
+	dom.empty(); //先清空再增加,防止重复问题
+	dom.append(inputWupinId);
+	var domWupinId=dom.find("#"+data.inputId); //对应的物品id元素
+	domWupinId.select2({
+        language: "zh-CN",	//汉化
+        // theme: "classic", //主题
+         ajax: {
+             url: data.wupinUrl,
+             dataType: 'json',
+             delay: 250,
+             method:'post',
+             data: function (params) {
+                 return {
+                     term: params.term, // search term
+                     page: params.page?params.page:1
+                 };
+             },
+             processResults: function (data, params) {
+                 params.page = params.page || 1;
+                 var rs = data.data;
+                 var total = rs.pop().total;
+                 return {
+                     results: data.items || rs, //必须用data.data因为后返回的这样的
+                     pagination: {
+                         more: (params.page * 10) < total
+                     }
+                 };
+             },
+             cache: true
+         },
+         escapeMarkup: function (markup) { return markup; }, // let our custom formatter work
+         minimumInputLength: data.minimumInputLength, //至少输入一个字符
+         templateResult: formatRepoProvince, // omitted for brevity, see the source of this page
+         templateSelection: formatRepoProvince // 写数据样式
+     });
+}
+
+function formatRepoProvince(repo) {
+    if (repo.loading) return repo.text;
+    var markup = repo.text;
+    return markup;
+}
+
+//异步加载区划
+function areaByRegi(regiUrl,data,dom,paras){
+	//缓存数据
+	var cachData=$("body").data(data.regiId);
+	if(cachData){
+		var regiData=cachData;	//json数组,0区划id,1区划值
+		if(regiData.length>0){
+			for(var i in regiData){
+				dom.append('<option value="'+regiData[i][0]+'">'+regiData[i][1]+'</option>');
+			}
+		}else{
+			dom.append('<option value="">未找到相关区划</option>');
+		}
+	}else{
+		//异步加载市
+		$.postRest(regiUrl,data,function(rData){
+			if(rData.code==0){
+				dom.append('<option value="">查询区划失败</option>');				
+			}else{
+				var regiData=rData.data;	//json数组,0区划id,1区划值
+				if(regiData.length>0){
+					for(var i in regiData){
+						dom.append('<option value="'+regiData[i][0]+'">'+regiData[i][1]+'</option>');
+					}
+				}else{
+					dom.append('<option value="">未找到相关区划</option>');
+				}
+				$("body").data(data.regiId,rData.data); //缓存数据
+			}
+		},paras);
+	}
+}
+// 单位类型
+var getCompNature = {
+		SC:"生产单位",
+		SY:"使用单位",
+		YS:"运输单位",
+		CC:"存储单位",
+		CZ:"处置单位",
+		XS:"销售单位"
+};
+
+function dateToString(dataObj,myDate){
+	var date = new Date();
+	date.setTime(dataObj[myDate]);
+	 var y = date.getFullYear();    
+	    var m = date.getMonth() + 1;    
+	    m = m < 10 ? ('0' + m) : m;    
+	    var d = date.getDate();    
+	    d = d < 10 ? ('0' + d) : d;    
+	    var h = date.getHours();  
+	    h = h < 10 ? ('0' + h) : h;  
+	    var minute = date.getMinutes();  
+	    var second = date.getSeconds();  
+	    minute = minute < 10 ? ('0' + minute) : minute;    
+	    second = second < 10 ? ('0' + second) : second;   
+	    return y + '-' + m + '-' + d+' '+h+':'+minute;
+}
+
+/**************原validate.js的方法*****************/
+/******jquery创建标签时有标签体的标签应写反标签[比直接结束的写法(XHTML)兼容性好],无标签体的标签千万不要写反标签*****/
+function msg() {
+	if(typeof $.ui == 'undefined'){
+		return;
+	}
+	var diag = $("#dialog");
+	if (diag.length == 0) {
+		var d = $("<div></div>");
+		d.html("正在加载，请稍候...");
+		d.css({"padding-left":18,"font-size":16,"margin":"10px auto"});
+		d.width(180);
+		d.css("background","url(\"/js/jquery/smoothness/images/ui-anim_basic_16x16.gif\") left no-repeat white;");
+		diag = $("<div id='dialog' style='overflow:hidden'></div>");
+		diag.append(d);
+		
+		diag.dialog( {
+			autoOpen : false,//以便隐藏标题后计算高度,不能自动显示.
+			modal : true,
+			draggable : false,
+			resizable : false,
+			height : 40,
+			width : 220
+		});
+		diag.dialog('widget').find(".ui-dialog-titlebar").hide();
+	}
+	diag.dialog("open");
+}
+function stopmsg() {
+	try {
+		$("#dialog").dialog("close");
+	} catch (e) {
+	}
+}
+
+/**
+ * 根据输入自动检索服务器数据并提供选择和填充,一般由外部方法组成data后调用.如需某项不可选择，则给该项增加fun：tishi/fenye
+ * 如需改变url地址和参数,需先执行$("#"+id).autocomplete( "destroy" )后重调用aotoRemoteSearch.
+ * json中必须包含label键,用于区分结果说明li和数据li(未约定最大显示条数的除外.)
+data.url: 一个同域地址,返回json字符串.
+data.data: 该URL正常执行必须的参数,将拼接在url后,键值对的object
+data.target: input的id
+data.otherTarget: object键值对,domid:json lable, domid可为ID和name(取页面第一个)
+data.myLableFun 可以自定义下拉列表显示方式,而不使用默认的(就是li),如果分页,不要设置该值
+data.closeFun: 关闭时触发,可以有2个参数(event,ui) this=target dom,但不建议使用,因为ui是空object
+data.data.maxNum: 该参数用于分页,查询条件之一,需远程支持,最多显示第一页的maxNum条结果,如匹配多于maxNum的结果,在结果最后提示"约XX结果,请精确查询条件"且会disabled(例如查单位),
+	当maxNum未指定或指定为0时,显示全部匹配结果(例如查籍贯应指定minLength=0).分页必须设置该值
+data.minLength: 输入的文字>=这个长度时开始检索远程服务器
+data.needSelect: 对象的值是否必须是选择的,false不必选择,下拉结果仅供参考,默认必选.
+data.height: 下拉框的最大高度(IE6为实际高度),超过该高度时会显示滚动条,一般用于maxNum=0的情况.默认200
+json返回需使用hashmap嵌入list形成{}数组.返回结果中使用 /^约\d+结果,请精确查询条件$/ 或/^未找到任何结果$/标记更多数据的说明和无数据.
+20140227slj增加分页条功能 增加在原对象上绑定data("setting",setting)以应对发送到后台的数据动态改变(使用者无需关心)
+20140318 说明: 如果要重建autoComplete,应该这样调用后再创建.否则出错a.removeData("setting").autocomplete( "destroy" );
+20140623 扩展otherTarget支持函数,返回一个旧otherTarget(Object键值对).该函数在每次选择时自动计算已达到动态otherTarget的目的,函数this=当前dom对象
+	例如:otherTarget:function(){return {'a_'+this.id:'compId','b_'++this.id:'addr'};}
+20141011 增加初始参数data.selectedFun,扩展select完成后触发事件
+data.selectedFun: 函数对象,有2个参数(event,ui),ui.item后取得选中li的json数据.例如:ui.item['label'].this=target dom,一般用于既需要this又需要其他非data.otherTarget对应的值时.
+20141125 扩展otherTarget支持对象,返回二维数组即可,例如:[[dom obj1:'id',dom obj2:'sfz']],好处是otherTarget可以无需ID和name支持了,这对于一组name相同的对象特别实用
+20141126 经检测,该UI不支持克隆;
+*/
+function autoRemoteSearch(e) {
+	var cache = {};
+	var setting = {//初始化参数
+		url:"/dictController/getSjzdData",
+		target:"thisId",
+		otherTarget:{},
+		data:{
+			maxNum:8,//每页最大条数
+			page:1//,//分页
+			//charset:"utf-8"
+		},
+		useCache:true,//是否使用缓存,对于当前页面会改变结果的查询不宜使用缓存.
+		minLength:1,
+		needSelect:true,
+		closeFun: null,//关闭展开层时触发（不管是否选择了），参数无意义， 选择层消失时触发，一般使用selectedFun函数.
+		selectedFun: null,//选择一项后触发，有2个参数 event，ui
+		height:250,
+		disabled: true
+	};
+	$.extend(true,setting,(e.data.data?e.data:e)||{});
+
+	var dd = $("#"+setting.target).autocomplete(
+			{
+				minLength : setting.minLength,
+				source : function(request, response) {
+					var term = request.term;//input中输入的文字
+					term = $.trim(term.replace(/\s+/g," "));//处理连续空格
+					if (term == ''&&setting.minLength>0) {
+						return;
+					}
+					this.term = term;//覆盖,后续要用处理后的term
+					//新传data和上次存的setting
+					var sets={};
+					var s_sets = this.element.data("setting");//外部可以修改该值.通常修改的是页码和lx.
+					if(s_sets){
+						if(term!=s_sets.data.term||setting.url!=s_sets.url){//查询条件改变了,页码重置
+							s_sets.data.page=1;
+							s_sets.data.term = term;//set new
+						}
+						$.extend(true,sets,s_sets);
+					}else{//once
+						$.extend(true,sets,setting);
+						sets.data.term = term;//init
+						this.element.data("setting",sets);//放置.以便外部可修改.
+					}
+					//新的参数组成的字符串.检查缓存是否命中(包括data和url)
+					var newSets = $.extend(true,{},sets.data,{url:sets.url});
+					var dataStr = $.param(newSets);
+					if(setting.useCache){
+						if (dataStr in cache) {//先查缓存.在URL相对固定的情况下.
+							response(cache[dataStr]);
+							return;
+						}
+					}
+					//增加随机数,保证IE的ajax的get方式时,相同URL返回相同结果,导致不同页面相同URL调用时
+					//(有些参数跟session有关,返回结果不一样,但JS看不到这个参数)返回相同结果.
+					//返回的JSON对象键值都必须双引号,必须返回json数组autocomplete才能识别,返回的数据需要修正,因为框架结构变了,因此这里的代码也要做改变syj20160630
+					$.getJSON(setting.url, dataStr+"&random="+new Date().getTime(), function(data) {
+						var jData=$.parseJSON(data.data);	//将返回的data.data的字符串转为json
+						cache[dataStr] = jData;
+						response(jData);
+					});
+				},
+				create: function(event, ui) {
+					if(setting.minLength==0){
+						$(this).click(function(){
+		                    var active=$(this).data("ui-autocomplete").menu.active;
+		                    if(!active){
+		                        $(this).autocomplete("search" , "");
+		                    }
+	               		});
+					}
+				},
+				focus : function(event, ui) {
+					return false;//不将当前label显示在target上(上下键).
+				},
+				open : function(event, ui) {
+					if(setting.height){
+						var d = $(this).autocomplete('widget').find("li").parent();
+						d.css("overflow-y","auto");
+						d.css("overflow-x","hidden");
+//						if (!$.support.boxModel){//次判断不准确
+//							//for ie6 not suppurt max-height
+//							d.css("height",setting.height);
+//						}else{
+//							//not ie6
+//							d.css("max-height",setting.height);
+//						}
+						d.css("max-height",setting.height);	//本项目至少IE9,因此无需考虑IE6的情况了syj20170718
+					}
+				},
+				select : function(event, ui) {
+					var label = ui.item["label"];
+					if (setting.otherTarget) {
+						//函数取值,以便动态
+						var sed;
+						if($.isFunction(setting.otherTarget)){
+							sed = setting.otherTarget.call(this);
+						}else{
+							sed = setting.otherTarget;
+						}
+						//改造,对身份证这类的进行遮罩用*遮住只保留前三位和后三位
+						if($.isArray(sed)){//json or array
+							$.each(sed, function(i, val) {
+								var domId=val[0];//目标domID,带有#开头的
+								var domMaskId;//遮罩domId
+								var domMask;//新增的克隆元素
+								//身份证号要被隐藏
+								if(hasMask(domId.replace("#"))){
+									domMaskId=domId.replace("#")+"Mask";
+									if($("#"+domMaskId).length==0) {
+										domMask = dd.clone();//浅度克隆
+										$(domId).hide();//隐藏原有的
+										domMask.prop("id", domMaskId);
+										domMask.prop("name", domMaskId);
+										domMask.appendTo(dd.parent());
+									}else{
+										domMask=$("#"+domMaskId);
+									}
+								}
+								var oto =$(domId), tag = oto.prop("tagName");
+								if(tag=='INPUT' || tag=='SELECT' || tag=='TEXTAREA'){
+									oto.val(ui.item[val[1]]);
+									if(domMask){
+										domMask.val(mask(ui.item[val[1]]));
+									}
+								}else{
+									oto.text(ui.item[val[1]]);
+									if(domMask){
+										domMask.text(mask(ui.item[val[1]]));
+									}
+								}
+							});
+						}else{
+							$.each(sed, function(key, val) {
+								var dd = $("#" + key);
+								var domId=key;//目标domID
+								var domMaskId;//遮罩domId
+								var domMask;//新增的克隆元素
+								if(dd.length==0){
+									dd = $("[name="+key+"]").eq(0);
+								}
+								//身份证号要被隐藏
+								if(hasMask(domId)){
+									domMaskId=domId+"Mask";
+									if($("#"+domMaskId).length==0) {
+										domMask = dd.clone();//浅度克隆
+										dd.hide();//隐藏原有的
+										domMask.prop("id", domMaskId);
+										domMask.prop("name", domMaskId);
+										domMask.appendTo(dd.parent());
+									}else{
+										domMask=$("#"+domMaskId);
+									}
+								}
+								var tag = dd.prop("tagName");
+								if(tag=='INPUT' || tag=='SELECT' || tag=='TEXTAREA'){
+									dd.val(ui.item[val]);
+									if(domMask) {
+										domMask.val(mask(ui.item[val]));
+									}
+								}else{
+									dd.text(ui.item[val]);
+									if(domMask) {
+										domMask.text(mask(ui.item[val]));
+									}
+								}
+							});
+						}
+					}
+					if(setting.needSelect){
+						$(this).attr("lastVal",label);
+					}
+					if(setting.selectedFun){
+						setting.selectedFun.call(this,event,ui);
+					}
+				},
+				close : setting.closeFun
+			});
+	if(setting.needSelect){
+		dd.on("autocompleteclose", function( event, ui ) {
+			var tar = $(this);//this=input documentObject
+			if(tar.attr("lastVal")!=tar.val()){
+				tar.attr("lastVal","");
+				//置空
+				tar.val("");
+				//避免ui源码中3714中if (this.term !== this._value())导致置空后再输入上次值不显示层,也不会触发needSelect过滤了
+				//原ui中并没有支持我们这个必须选择的功能,我们必须同步置空源码中this.term和input value
+				tar.data("ui-autocomplete").term="";
+				if (setting.otherTarget) {
+					//函数取值,以便动态
+					var sed;
+					if($.isFunction(setting.otherTarget)){
+						sed = setting.otherTarget.call(this);
+					}else{
+						sed = setting.otherTarget;
+					}
+					$.each(sed, function(key, val) {
+						var dd = $("#" + key);
+						if(dd.length==0){
+							dd = $("[name="+key+"]").eq(0);
+						}
+						var domId=key;//目标domID
+						//身份证号要被隐藏
+						if(hasMask(domId)){
+							var domMaskId=domId+"Mask";
+							var domMask=$("#"+domMaskId);
+							if(domMask){
+								domMask.val("");
+							}
+						}
+						dd.val("");
+					});
+				}
+			}
+		});
+	}
+	if (setting.myLableFun) {//自定义li显示内容.
+		dd.data("ui-autocomplete")._renderItem = setting.myLableFun;
+	}else{
+		//初始化分页功能
+		if(setting.data.maxNum>0){
+			dd.data("ui-autocomplete")._renderItem = function(ul, item){
+				var widget = this;
+				var term = widget.term.split(" ");//查询文字,空格分隔的.
+				var label = item.label;
+				//无a则该li点击时不会被选择.(有a时,即使a上无任何属性和事件,可能后续jquery ui 有注入事件)
+				if(item.fun){
+					var li;
+					if(item.fun=="fenye"){//分页行
+						li = $("<li class='ui-menu-item' role='presentation'>" + label + "</li>");
+						li.find(".page_prev,.page_prev_disabled,.page_next,.page_next_disabled,.page_home,.page_end").remove();
+						var sp = li.find("span");//分页条使用的a.但a会触发autocomplete的选择
+						sp.each(function(){
+							var p = $(this);
+							var f = $.trim(p.text());
+							var np = $("<span style='cursor:pointer;color:#f27104;padding-left:2px'>"+f+"</span>");
+							p.replaceWith(np);
+							np.click({"page":f},function(e){//替换成新函数,该函数this=widget,方便操作.
+								var sets = widget.element.data("setting");
+								sets.data.page = e.data.page;
+								widget.search();
+							});
+						});
+						li.find(".page_current").css("padding-left",5).removeClass();
+					}else{//其他提示行,则限制为不可选择diabled,如没有未找到结果记录syj20170717,diabled在谷歌下无效
+						li = $("<li class='ui-menu-item' role='presentation' style='color:#A0A0A0'>" + label + "</li>");
+					}
+					li.click(function(e){
+						e.stopPropagation();	//防止事件冒泡syj 20170718
+						widget.element.focusEnd();//点击结果栏后让dom取得焦点,以便失去焦点时关闭widget.
+					});
+					return li.appendTo(ul);
+				}else{//数据行
+					for(var t in term){
+						label = label.replace(new RegExp(term[t],"g"),"<b>"+term[t]+"</b>");
+					}
+					return $("<li><a>" + label + "</a></li>").appendTo(ul);//默认格式
+				}
+			};
+		}
+	}
+}
+/**
+ * 本地数据显示,支持自动填充,如需某项不可选择
+ * 参考autoRemoteSearch
+ */
+function autoSearch(e) {
+	var setting = {//初始化参数
+		target:"thisId",
+		otherTarget:{},
+		data:[{
+			//label:'测试一'
+		}],
+		needSelect:true,
+		closeFun: null,//关闭展开层时触发（不管是否选择了），参数无意义， 选择层消失时触发，一般使用selectedFun函数.
+		selectedFun: null//选择一项后触发，有2个参数 event，ui
+	};
+	$.extend(true,setting,(e.data.data?e.data:e)||{});
+	var dd = $("#"+setting.target).autocomplete(
+		{
+		minLength: 0,
+		source: setting.data,
+		focus: function( event, ui ) {
+			return false;
+		},
+		create: function(event, ui) {//配合minLength=0实现初始显示数据.
+            $(this).click(function(){
+                var active=$(this).data( "ui-autocomplete").menu.active; //没有这一行，鼠标选择选项时，会触发输入的click事件，导致提示框不能关闭  
+                if(!active){  
+                    $(this).autocomplete("search" , "");  
+                }  
+            });
+        },
+        open : function(event, ui) {
+			if(setting.height){
+				var d = $(this).autocomplete('widget').find("li").parent();
+				d.css("overflow-y","auto");
+				d.css("overflow-x","hidden");
+//				if (!$.support.boxModel){
+//					//for ie6 not suppurt max-height
+//					d.css("height",setting.height);
+//				}else{
+//					//not ie6
+//					d.css("max-height",setting.height);
+//				}
+				d.css("max-height",setting.height);//syj20170718 本项目最低IE9
+			}
+		},
+		select: function( event, ui ) {
+			if(setting.otherTarget){
+				//函数取值,以便动态
+				var sed;
+				if($.isFunction(setting.otherTarget)){
+					sed = setting.otherTarget.call(this);
+				}else{
+					sed = setting.otherTarget;
+				}
+				if($.isArray(sed)){//json or array
+					$.each(sed, function(i, val) {
+						$(val[0]).val(ui.item[val[1]]);
+					});
+				}else{
+					$.each(sed, function(key, val) {
+						var dd = $("#" + key);
+						if(dd.length==0){
+							dd = $("[name="+key+"]").eq(0);
+						}
+						dd.val(ui.item[val]);
+					});
+				}
+			}
+			if(setting.needSelect){
+				$(this).attr("lastVal",ui.item["label"]);
+			}
+			if(setting.selectedFun){
+				setting.selectedFun.call(this,event,ui);
+			}
+		},
+		close : setting.closeFun
+	});
+	if(setting.needSelect){
+		dd.on("autocompleteclose", function( event, ui ) {
+			var tar = $(this);//this=input documentObject
+			if(tar.attr("lastVal")!=tar.val()){
+				tar.attr("lastVal","");
+				tar.val("");
+				tar.data("ui-autocomplete").term="";
+				if (setting.otherTarget) {
+					//函数取值,以便动态
+					var sed;
+					if($.isFunction(setting.otherTarget)){
+						sed = setting.otherTarget.call(this);
+					}else{
+						sed = setting.otherTarget;
+					}
+					$.each(sed, function(key, val) {
+						var dd = $("#" + key);
+						if(dd.length==0){
+							dd = $("[name="+key+"]").eq(0);
+						}
+						dd.val("");
+					});
+				}
+			}
+		}); 
+	}
+	if(setting.myLableFun){//自定义li显示内容.
+		dd.data( "ui-autocomplete" )._renderItem = setting.myLableFun;
+	}else{
+		dd.data("ui-autocomplete")._renderItem = function(ul, item){
+			var widget = this;
+			var label = item.label;
+			if(item.fun){//提示行
+				var li = $("<li class='ui-menu-item' role='presentation' style='color:#A0A0A0'>" + label + "</li>");
+				li.click(function(e){
+					e.stopPropagation();
+					widget.element.focusEnd();//点击结果栏后让dom取得焦点,以便失去焦点时关闭widget.
+				});
+				return li.appendTo(ul);
+			}else{//数据行
+				return $("<li><a>" + label + "</a></li>").appendTo(ul);//默认格式
+			}
+		};
+	}
+}
+
+/**
+ * 原getDw函数禁止使用,使用本函数替代,能有效识别并正确操作,引导autoComplete
+ * 调用方式1:dynamicAutoComplete(data)data必须包含target属性=要绑定autoComplete的对象的ID
+ * 调用方式2:dynamicAutoComplete.call(obj,data); obj为要绑定autoComplete的对象
+ * 其中,当data.once=true时不给对象绑定click或focus,而是直接执行一次getDw=原来的getDw(data)或getDw.call(a,data);
+ * data.once其他值时=原来的a.click(data,getDw);
+ * @param {Object} data =原getDw的data,要传递动态参数,则需设置data的key=传递的name,value=具体的值,如该值从页面取,则使用#+ID或name,如要验证不能为空则以#结尾,例如:key:#id#
+ * 		如果要自定义不为空时的提示信息,则使用#+id+#+提示信息作为value.
+ * 例: dynamicAutoComplete({target:'dfCompName',data:{shengneiwai:"sn",compType:"SC,XS"},selectedFun:getWupinByDanweiId});
+ */
+function dynamicAutoComplete(data){
+	data.target = data.target?data.target:this.id;
+	if(!data.target){
+		alert("必须指定dom对象的ID(target)");
+	}
+	var a = $("#"+data.target);//input等
+	if(data.once){
+		getDw(data);
+	}else{
+		var tag = a.prop("tagName"),type = a.attr("type");
+		if(tag=="INPUT"&&(type=="text"||type=="password")||tag=="TEXTAREA"||tag=="SELECT"){
+			a.focus(data,getDw);
+		}else{
+			a.click(data,getDw);
+		}
+	}
+}
+/**
+ * 禁止调用该方法.使用dynamicAutoComplete替代
+ * @return {TypeName} 
+ */
+function getDw(e) {
+	var a = e.data.data?$(this):$("#"+e.target);
+	var settting={
+		url: "/common/authc/danweiComplete",//请求地址,可能要改
+		target: a.attr("id"),//当前对象ID
+		otherTarget: {},//需要赋值的键值对,具体查看autoRemoteSearch
+		data:{
+			shengneiwai: "",//sn省内,sw省外,默认无限制,可通过传递页面dom的ID或name来取得该值.
+			showZhuce: false,//true表示从注册单位内选,默认flash从备案单位选.
+			maxNum: 10,//默认使用分页,且显示最多10条,要取消分页请设置为0.
+			chgh: false,//是否启用供货单位检索,true表示启用,启用时会先判断使用者辖区开启供货没,开启则检索供货单位,没有则忽略该值.
+			xz: false,//是否需要按照辖区或管辖单位过滤查询结果.
+			compType: "QY",//查询的单位类型,默认查企业的.可通过'QY','GA','ALL'来快速指定.
+			isDel:0//默认查未注销的.
+		},//发送到后台的参数
+		closeFun: null,//关闭展开层时触发（不管是否选择了），参数无意义， 选择层消失时触发，一般使用selectedFun函数.
+		selectedFun: null//选择一项后触发，有2个参数 event，ui
+	};
+	var cl = a.attr("class");
+	if(cl && !$.isFunction(settting.otherTarget)){
+		settting.otherTarget[cl.split(" ")[0]]="compId";//js object初始化时 key不能是变量,必须后续赋值.
+	}
+	$.extend(true,settting,(e.data.data?e.data:e)||{});//target,otherTarget一般使用默认值即可.
+	
+	//计算SN
+	var sn_='',sn=settting.data.shengneiwai;
+	if(sn=='sn' || sn=='sw' || sn=='sw,xtw'){
+		sn_ = sn;
+	}else if(typeof sn=='string'){
+		sn_ = shengneiwai(null,sn);
+	}
+	if(sn && !sn_){//指定了页面dom但没发现值
+		alert("必须选择是省内还是省外!");return;
+	}
+	settting.data.shengneiwai= sn_;
+	//计算企业类型
+	var type = settting.data.compType.toUpperCase();//转为大写
+	if(type=='ALL'){
+		type="";
+	}
+	settting.data.compType = type;
+	//计算其他参数值
+	for ( var key in settting.data) {
+		if(key!='shengneiwai' && key!='compType'){
+			getDynamicValue(settting.data,key,a);
+		}
+	}
+	//20140227slj增加分页条功能后可以动态调整autoCompelete的setting(即发送到后台的数据)
+	var oldData = a.data("setting");
+	if(oldData){//已创建
+		a.data("setting",$.extend(true,oldData,settting));//覆盖新参数,旧参数必须保留,例如:分页
+	}else{
+		autoRemoteSearch(settting);
+		if(settting.minLength==0){
+			a.data("ui-autocomplete").search();//当需要直接显示数据,不能使用click,因为重复触发死循环.
+		}
+	}
+	return false;//阻止该事件继续冒泡(也有其他方法),导致autoComplete在点击时下拉层消失.
+}
+
+function getDynamicValue(obj,key,jDom){
+	var value = obj[key],vl="";
+	if(typeof value != "string"){
+		return;
+	}
+	if(value.indexOf("#")==0){//#开头,说明要从页面取.
+		var nn = value.indexOf("#",2);
+		var id = nn==-1?value.substr(1):value.substr(1,nn-1);
+		vl = $("#"+id).val();
+		if(!vl){
+			vl = $("[name="+id+"]").val();
+		}
+		if(nn>1){
+			if(vl == ""){
+				var msg = nn<value.length-1?value.substr(nn+1):("必须填写"+key);
+				alert(msg);jDom.blur();return false;//不能直接focus该msg对应的对象,因为可能是hidden
+			}
+		}
+		obj[key] = vl;
+	}
+}
+/**
+ * 获取或设置省内外选中,参数同leixing
+ * @param {Object} lv
+ * @param {Object} dom
+ * @memberOf {TypeName} 
+ * @return {TypeName} 
+ */
+function shengneiwai(lv,dom){
+	var cha = !lv;
+	var n = $("[name="+(dom?dom:"appSellCompSd")+"]");
+	//一组或一个,仅radio特殊
+	if(n.prop("tagName")=="INPUT" && n.attr("type")=="radio"){
+		n.each(function(){
+			if(lv){
+				this.checked=this.value==lv;
+			}else if(this.checked){
+				lv=this.value;return false;
+			}
+		});
+	}else{
+		if(lv){
+			n.val(lv);
+		}else{
+			lv=n.val();
+		}
+	}
+	if(cha){
+		lv=lv=="1"?"sn":(lv==2?"sw":lv);
+	}
+	return lv;
+}
+
+/****************业务:单位级别方面的扩展***************/
+var natureA = ["SCXSSYYSCZCCKYJK","PS","FJ","SJ","ST"];
+var xzqhFd = [0,2,4,6,9];//地理区划.行政区划
+var gxqhFd = [0,2,5,8,12];//管辖区划,其他地方可能用到
+/**
+ * 获取区域编码的有效部分
+ * @param areaCode 9位
+ * @return
+ */
+function areaYxbf(areaCode) {
+	if(areaCode.length()>9){//认为是管辖编码
+		areaCode = areaCode.substring(0,4)+areaCode.substring(5,7)+areaCode.substring(8,11);
+	}
+	for (var i = 0; i < xzqhFd.length-1; i=i+1) {
+		if("000".indexOf(areaCode.substring(xzqhFd[i],xzqhFd[i+1]))==0){
+			return areaCode.substring(0,xzqhFd[i]);
+		}
+	}
+	return areaCode;
+}
+/**
+ * 获取行政编码的有效部分
+ * @param compCode 12位(多3位补码,分别位于市.区.街道后一位) 44 010 080 0000
+ * @return
+ */
+function codeWhere(compCode) {
+	for (var i = 0; i < gxqhFd.length-1; i=i+1) {
+		//有X的通常为地市直管企业.格式类似:4401 00x 000x
+		if("0000".indexOf(compCode.substring(gxqhFd[i],gxqhFd[i+1]))==0){
+			return compCode.substring(0,gxqhFd[i]);
+		}
+	}
+	return compCode;
+}
+/**
+ * 取得code 有效部分所对应的gxqhFd下标,目的是方便找到下一级的长度
+ * @param codeWhere
+ * @return
+ */
+function codeWhereLen(codeWhere) {
+	for (var i = 0; i < gxqhFd.length; i=i+1) {
+		if(gxqhFd[i]==codeWhere.length){
+			return i;
+		}
+	}
+	return 0;
+}
+/**
+ * 获取机关类型标识.
+ * @param codeWhere codeWhere()得到的值
+ * @return 2个字母的机关代码.不能区分企业和派出所(因编码有效位数一致)
+ */
+function chengduTag(codeWhere){
+	var i = codeWhereLen(codeWhere);//2,5,8,12=1 2 3 4 
+	return natureA[natureA.length-i];
+}
+/**
+* 比较行政机关大小.返回这一组内最大机关在数组中的位置(0开始)和类型下标
+* @param 数组,要比较的行政机关标识(例如:SJ,FJ)组成
+* @return [0=最大机关在arr参数中的位置,1=该机关在natureA中的位置,2=最大机关标识]
+*/
+function chengduBijiao(arr){
+	var index = chengduIndex(arr);
+	var max = index[0],num=0;
+	for(var i=0;i<index.length;i=i+1){
+		if (index[i] > max) {
+			max = index[i];
+			num = i;
+		}
+	}
+	return [num,max,arr[num]];
+}
+/**
+ * 返回数组中每个机关代码 在natureA中的位置(0开始).
+ * @param arr
+ * @return 数组,元素为对应arr在natureA的下标
+ */
+function chengduIndex(arr){
+	var index=[];
+	for(var i=0;i<arr.length;i=i+1){
+		for(var j=0;j<natureA.length;j=j+1){
+			if(natureA[j].indexOf(arr[i])!=-1){
+				index.push(j);break;
+			}
+		}
+		if(isNaN(index[i])){index[i]=-1;}
+	}
+	return index;
+}
+
+/**
+ * 根据机关类型代码(2位英文)返回中文类型名
+ * @param nature,例如:SY
+ * @return 例如:公安市局
+ */
+function getNatureTag(nature){
+	var natureDictionary;
+	natureDictionary = [["SC","生产单位"],["SY","使用单位"],["XS","销售单位"],["YS","运输单位"],["CC","储存单位"],["CZ","处置单位"],
+	                        ["ST","省公安厅"],["SJ","公安市局"],["FJ","公安分局"],["PS","派出所"],["KF","系统管理单位"]];
+	for ( var i in natureDictionary) {
+		if(natureDictionary[i][0]==nature){
+			return natureDictionary[i][1];
+		}
+	}
+	return "";
+}
+
+/************业务: 下载*************/
+function detailDwbaFile(fileid,filename){
+	window.open('/lte/down/detailDwbaFj.jsp?fileid='+fileid+"&filename="+encodeURIComponent(filename),'文件查看',"width=650 height=650 top="+(window.screen.availHeight-650)/2+" left="+(screen.availWidth-650)/2+" scrollbars=yes alwaysRaised =yes resizable=yes");
+}
+function detailRybaFile(fileid,filename){
+	window.open('/lte/down/detailRybaFj.jsp?fileid='+fileid+"&filename="+encodeURIComponent(filename),'文件查看',"width=650 height=650 top="+(window.screen.availHeight-650)/2+" left="+(screen.availWidth-650)/2+" scrollbars=yes alwaysRaised =yes resizable=yes");
+}
+function detailKfbaFile(fileid,filename){
+	window.open('/lte/down/detailKfbaFj.jsp?fileid='+fileid+"&filename="+encodeURIComponent(filename),'文件查看',"width=650 height=650 top="+(window.screen.availHeight-650)/2+" left="+(screen.availWidth-650)/2+" scrollbars=yes alwaysRaised =yes resizable=yes");
+}
+function detailFile(tableName,tableId,tableContent,fileId){
+	window.open('/lte/down/detailFj.jsp?tableName='+tableName+'&tableId='+tableId+'&tableContent='+tableContent+'&fileId='+fileId,'文件查看',"width=650 height=650 top="+(window.screen.availHeight-650)/2+" left="+(screen.availWidth-650)/2+" scrollbars=yes alwaysRaised =yes resizable=yes");
+}
+function downDwFile(fileid,filename){
+	window.open('/lte/down/downDwbaFj.jsp?fileid='+fileid+"&filename="+encodeURIComponent(filename),'文件下载',"width=650 height=650 top="+(window.screen.availHeight-650)/2+" left="+(screen.availWidth-650)/2+" scrollbars=yes  alwaysRaised =yes resizable=yes");
+}
+function downRyFile(fileid,filename){
+	window.open('/lte/down/downRybaFj.jsp?fileid='+fileid+"&filename="+encodeURIComponent(filename),'文件下载',"width=650 height=650 top="+(window.screen.availHeight-650)/2+" left="+(screen.availWidth-650)/2+" scrollbars=yes  alwaysRaised =yes resizable=yes");
+}
+function downKfFile(fileid,filename){
+	window.open('/lte/down/downKfbaFj.jsp?fileid='+fileid+"&filename="+encodeURIComponent(filename),'文件下载',"width=650 height=650 top="+(window.screen.availHeight-650)/2+" left="+(screen.availWidth-650)/2+" scrollbars=yes  alwaysRaised =yes resizable=yes");
+}
+function downFile(tableName,tableId,tableContent,fileId,fileName){
+	window.open('/lte/down/downFj.jsp?tableName='+tableName+'&tableId='+tableId+'&tableContent='+tableContent+'&fileId='+fileId+'&fileName='+encodeURIComponent(fileName),'文件查看',"width=650 height=650 top="+(window.screen.availHeight-650)/2+" left="+(screen.availWidth-650)/2+" scrollbars=yes alwaysRaised =yes resizable=yes");
+}
+
+/**
+ * 稍后取消
+ * @param $
+ * @param b
+ * @param sub
+ */
+function goTo($,b,sub){
+	if(sub!=false){
+		var i = $.indexOf("#");
+		if(i!=-1){
+			$=$.substring(0,i);
+		}
+	}
+	if(b){
+		window.open($);
+	}else{
+		msg();
+		//ie location存在referer值为空的问题,使用A解决
+	    if(document.all){
+	        var a = document.createElement('a');
+	        a .href = $;
+	        document.body.appendChild(a);
+	        a .click();
+	    }else{
+	    	window.location.href = $;
+	    }
+	}
+}
+
+/**
+ * 确认提示 for 验证框架,稍后换框架后取消
+ * @return {TypeName} 
+ */
+function isAffirm(){
+	if(confirm("确认提交?")){
+		msg();
+		return true;
+	}
+	return false;
+}
+
+/**
+ * 扩展jquery
+ */
+if(typeof $!="undefined"){//有导入jquery时附件工具方法和对象方法.
+	/*以下是一些常规验证,扩展*/
+	$.extend({
+	    //去除左边的空格
+	    ltrim: function(_str){
+	        return _str.replace(/(^\s*)/g, "");
+	    },
+	    //去除右边的空格
+	    rtrim: function(_str){
+	        return _str.replace(/(\s*$)/g, "");
+	    },
+	    //因为jquery本身已经有了trim方法,故这里不再重新定义
+	    //计算字符串长度，一个双字节字符长度计2，ASCII字符计1
+	    lengthw: function(_str){
+	        return _str.replace(/[^\x00-\xff]/g, "rr").length;
+	    },
+	    replaceAll:function(val,rs,ts) {
+	        return val.replace(new RegExp(rs,"gm"),ts);
+	    },
+	    /**
+	     * 验证字符串是否满足指定的数值要求.
+	     * @param {Object} val 要检测的数值,可以是字符串和数字
+	     * @param {Object} zhengshuwei 整数位长度,默认1
+	     * @param {Object} xiaoshuwei 小数位长度,默认0
+	     * @param {Object} maxValue	最大值
+	     * @param {Object} minValue	最小值
+	     * @memberOf {TypeName} 
+	     * @return {TypeName} 
+	     */
+	    checkShuzhi:function(val,zhengshuwei,xiaoshuwei,maxValue,minValue){
+	    	if(!this.isNumeric(val)){
+	    		return false;
+	    	}
+	    	val = val+"";//转为字符串
+	    	if(typeof maxValue != 'undefined'){//可以负数
+	    		if(parseFloat(val)>maxValue){
+	    			return false;
+	    		}
+	    	}
+	    	if(typeof minValue != 'undefined'){
+	    		if(parseFloat(val)<minValue){
+	    			return false;
+	    		}
+	    	}
+	    	var s = val.split(".");
+	    	if(!xiaoshuwei){
+	    		xiaoshuwei = 0;
+	    	}
+	    	if(!zhengshuwei){
+	    		zhengshuwei = 1;
+	    	}
+	    	if(s[0].length>zhengshuwei){
+	    		return false;
+	    	}
+	    	if(s.length==2){
+	    		if(s[1].length>xiaoshuwei){
+	    			return false;
+	    		}
+	    	}
+	    	return true;
+	    }
+	});
+	//火狐要求方法必须在调用之前申明
+	function uaMatch(ua){
+		ua = ua.toLowerCase();
+		var rMsie = /(msie\s|trident.*rv:)([\w.]+)/,rWebkit = /(webkit)\/([\w.]+)/,
+		rFirefox = /(firefox)\/([\w.]+)/,rOpera = /(opera).+version\/([\w.]+)/,
+		rChrome = /(chrome)\/([\w.]+)/,rSafari = /version\/([\w.]+).*(safari)/;
+		var match = rMsie.exec(ua);
+		if (match != null) {
+			var b_v = { browser : "IE", version : match[2] || "0" };
+			if(b_v.browser=="IE"){
+				rMsie = /(windows nt [\d\.]+)/;
+				match = rMsie.exec(ua);
+				if(match != null){
+					b_v.nt_ver = match[0];
+				}
+				rMsie = /(wow64)/;//32位的没有标记
+				match = rMsie.exec(ua);
+				if(match != null){
+					b_v.bt_ver = "64位";
+				}else{
+					b_v.bt_ver = "32位";
+				}
+			}
+			return b_v;
+		}
+		//优先于rWebkit，因包含了rWebkit标识
+		match = rSafari.exec(ua);
+		if (match != null) {
+			return { browser : match[2] || "", version : match[1] || "0" }; 
+		}
+		match = rFirefox.exec(ua);
+		if (match != null) {
+			return { browser : match[1] || "", version : match[2] || "0" };
+		}
+		match = rOpera.exec(ua);
+		if (match != null) {
+			return { browser : match[1] || "", version : match[2] || "0" };
+		}
+		match = rChrome.exec(ua);
+		if (match != null) {
+			return { browser : match[1] || "", version : match[2] || "0" };
+		}
+		match = rWebkit.exec(ua);
+		if (match != null) {
+			return { browser : match[1] || "", version : match[2] || "0" };
+		}
+		if (match != null) {
+			return { browser : "", version : "0" };
+		}
+	};
+	function mobile(u){
+		return {
+			trident: u.indexOf('Trident') > -1, //IE内核
+            presto: u.indexOf('Presto') > -1, //opera内核
+            webKit: u.indexOf('AppleWebKit') > -1, //苹果、谷歌内核
+            gecko: u.indexOf('Gecko') > -1 && u.indexOf('KHTML') == -1, //火狐内核
+            mobile: !!u.match(/AppleWebKit.*Mobile.*/)||!!u.match(/AppleWebKit/), //是否为移动终端
+            ios: !!u.match(/\(i[^;]+;( U;)? CPU.+Mac OS X/), //ios终端
+            android: u.indexOf('Android') > -1 || u.indexOf('Linux') > -1, //android终端或者uc浏览器
+            iPhone: u.indexOf('iPhone') > -1 || u.indexOf('Mac') > -1, //是否为iPhone或者QQHD浏览器
+            iPad: u.indexOf('iPad') > -1, //是否iPad
+            webApp: u.indexOf('Safari') == -1 //是否web应该程序，没有头部与底部
+		};
+	}
+	//好多旧插件,还是要使用browser,IE11要例外,手机浏览器不支持iframe滚动条,需外套div
+	var b_v = uaMatch(navigator.userAgent);
+	$.browser = {
+	    version: b_v.version,
+	    webkit: b_v.browser=="webkit",
+	    opera: b_v.browser=="opera",
+	    msie:  b_v.browser=="IE",
+	    chrome: b_v.browser=="chrome",
+	    mozilla: b_v.browser=="mozilla",
+	    browser: b_v.browser,
+	    nt_ver:b_v.nt_ver,	//什么操作系统，仅区分win版本。NT。。。
+	    bt_ver:b_v.bt_ver,	//操作系统的位数，仅区分32——64位。
+	    mobile: mobile(navigator.userAgent)
+	};
+	$.extend($.fn, {
+		//以下3个方法是让对象获取焦点时焦点在文本最后,focus()在最前面,要调用focusEnd
+	    setCursorPosition: function(position){
+		    if(this.lengh == 0) return this;
+		    return $(this).setSelection(position, position);
+		},
+		setSelection: function(selectionStart, selectionEnd) {
+		    if(this.lengh == 0) return this;
+		    input = this[0];
+		
+		    if (input.createTextRange) {
+		        var range = input.createTextRange();
+		        range.collapse(true);
+		        range.moveEnd('character', selectionEnd);
+		        range.moveStart('character', selectionStart);
+		        range.select();
+		    } else if (input.setSelectionRange) {
+		        input.focus();
+		        input.setSelectionRange(selectionStart, selectionEnd);
+		    }
+		
+		    return this;
+		},
+		focusEnd: function(){
+		    this.setCursorPosition(this.val().length);
+		},
+		/**
+		 * 让select不能手动选择
+		 * 方式:$("#selectId").selectReadOnly();
+		 * @memberOf {TypeName} 
+		 */
+		selectReadOnly: function(){
+			$(this).focus( function(){
+				$(this).attr('oldValue',$(this).val());
+				});
+		    return $(this).change(function(){
+		    	var oldValue = $(this).attr('oldValue');
+		      	//var currentValue = $(this).val();
+				$(this).val(oldValue);
+		    });
+		},
+		/**
+		 * 让iframe自动高度.使得页面看起来无iframe
+		 * 推荐使用方法:$()内先调用本方法给iframe注入事件,然后再设置iframe的src,显示页面
+		 * 方式:$("iframe").iframeOnLoad();
+		 * @memberOf {TypeName} 
+		 */
+		iframeOnLoad: function(){
+			return $(this).load(function(){
+				var dd = $(this);
+		 		dd.height(10);//让iframe内的页面能正确计算body高度.
+				//如果页面有后续加载的样式文件引发了布局改变(高度变化),onload一次获取到的高度就不准了,所以连续获取几次,直到高度不改变为止.
+				var d = window.setInterval(function() {
+					var h = dd.height();
+					//outerHeight计算了margin padding 和height,但获取的高度总=iframe高度,例如:当前代码下总=10,后面的Math.max改变iframe大小后总=iframe大小.
+					//var now = dd.contents().find("body").outerHeight(true);
+					var now = Math.max(dd[0].contentWindow.document.documentElement.scrollHeight, dd[0].contentWindow.document.body.scrollHeight);
+					if(h==now){
+						window.clearInterval(d);//完毕后取消定时.
+						try{
+							stopmsg();//有时候需要该方法.
+						}catch(e){}
+					}else{
+						dd.height(now);
+					}
+				}, 200);
+			});
+		}
+	});
+}
+//加入window resize,使用命名空间
+function addEchartResize(echart, namespace){
+	if(!namespace){namespace="echartresize";}
+	$(window).on("resize."+namespace,function(){echart.resize();});
+}
+//计量单位标准
+var JLDW_JSON = {
+	"Y":{"ml":"毫升","l":"升","kl":"千升"},
+	"G":{"mg":"毫克","g":"克","kg":"千克","t":"吨"}
+};
+//根据英文计量单位显示中文名,通常用于datatables的render
+function showChineseJLDW(jldw){
+	for(var i in JLDW_JSON){
+		var d = JLDW_JSON[i];
+		for(var j in d){
+			if(j==jldw){
+				return d[j];
+			}
+		}
+	}
+}
+//根据实际计量单位取得系列单位，通常用于修改操作
+function showJLDWByYG(jldw){
+	for(var i in JLDW_JSON){
+		var d = JLDW_JSON[i];
+		for(var j in d){
+			if(j==jldw){
+				return d;
+			}
+		}
+	}
+}
+
+/**
+ * 根据来源计量单位转换物品数量到目标计量单位
+ * @param fromDw	来源计量单位
+ * @param shuliang	数量
+ * @param toDw		目标计量单位
+ */
+function convertShuliang(fromDw, shuliang, toDw){
+	switch (fromDw) {
+	case "ml"://毫升
+		switch (toDw) {
+		case "l":
+			return Number(shuliang).chu(1000);//除以1000转换为升
+		case "kl":
+			return Number(shuliang).chu(1000).chu(1000);//除以1000000转换为千升
+		default:
+			return shuliang;
+		}
+	case "l"://升
+		switch (toDw) {
+		case "ml":
+			return Number(shuliang).cheng(1000);//乘以1000转换为毫升
+		case "kl":
+			return Number(shuliang).chu(1000);//除以1000转换为千升
+		default:
+			return shuliang;
+		}
+	case "kl"://千升
+		switch (toDw) {
+		case "ml":
+			return Number(shuliang).cheng(1000).cheng(1000);//乘以1000000转换为千升
+		case "l":
+			return Number(shuliang).cheng(1000);//乘以1000转换为升
+		default:
+			return shuliang;
+		}
+	case "mg"://毫克
+		switch (toDw) {
+		case "g":
+			return Number(shuliang).chu(1000);//除以1000转换为克
+		case "kg":
+			return Number(shuliang).chu(1000).chu(1000);//除以1000000转换为千克
+		case "t":
+			return Number(shuliang).chu(1000).chu(1000).chu(1000);//除以1000000000转换为吨
+		default:
+			return shuliang;
+		}
+	case "g"://克
+		switch (toDw) {
+		case "mg":
+			return Number(shuliang).cheng(1000);//乘以1000转换为毫克
+		case "kg":
+			return Number(shuliang).chu(1000);//除以1000转换为千克
+		case "t":
+			return Number(shuliang).chu(1000).chu(1000);//除以1000000转换为吨
+		default:
+			return shuliang;
+		}
+	case "kg"://千克
+		switch (toDw) {
+		case "mg":
+			return Number(shuliang).cheng(1000).cheng(1000);//乘以1000000转换为毫克
+		case "g":
+			return Number(shuliang).cheng(1000);//乘以1000转换为克
+		case "t":
+			return Number(shuliang).chu(1000);//除以1000转换为吨
+		default:
+			return shuliang;
+		}
+	case "t"://吨
+		switch (toDw) {
+		case "mg":
+			return Number(shuliang).cheng(1000).cheng(1000).cheng(1000);//乘以1000000000转换为毫克
+		case "g":
+			return Number(shuliang).cheng(1000).cheng(1000);//乘以1000000转换为克
+		case "kg":
+			return Number(shuliang).cheng(1000);//乘以1000转换为千克
+		default:
+			return shuliang;
+		}
+	default:
+		return shuliang;
+	}
+}
+
+//解决JS的精度问题
+/**
+ * 加法
+ * @param arg
+ * @return
+ */
+Number.prototype.jia = function(arg){
+	var r1,r2,m;   
+	try{r1 = this.toString().split(".")[1].length;}catch(e){r1=0;}
+	try{r2 = arg.toString().split(".")[1].length;}catch(e){r2=0;}
+	m = Math.pow(10,Math.max(r1,r2));
+	return (this*m+arg*m)/m;
+};
+
+/**
+ * 减法
+ * @param arg
+ * @return
+ */  
+Number.prototype.jian = function (arg){   
+	return this.jia(-arg);
+};
+
+/**
+ * 乘法
+ * @param arg
+ * @return
+ */
+Number.prototype.cheng = function (arg){   
+	var m=0,s1=this.toString(),s2=arg.toString();
+	try{m+=s1.split(".")[1].length;}catch(e){}
+	try{m+=s2.split(".")[1].length;}catch(e){}
+	return Number(s1.replace(".",""))*Number(s2.replace(".","")/Math.pow(10,m));
+};
+
+/**
+ * 除法
+ * @param arg
+ * @return
+ */
+Number.prototype.chu = function (arg){
+	var t1=0,t2=0,r1,r2;
+	try{t1=this.toString().split(".")[1].length;}catch(e){}
+	try{t2=arg.toString().split(".")[1].length;}catch(e){}
+	r1=Number(this.toString().replace(".",""));
+	r2=Number(arg.toString().replace(".",""));
+	return Math.round(((r1/r2)*(Math.pow(10,t2-t1)))*Math.pow(10,12))/Math.pow(10,12);
+};
+/**
+ * 关闭当前弹出框,修复多层弹出回调函数时找不到dom元素问题
+ * @param e
+ * @param callBack	回调方法名
+ * @param array		回调方法参数
+ */
+function myClose(e, callBack, array){
+	if(!array){
+		array=[["","",""]];
+	}
+	if(window.opener){
+		if(callBack){
+			var cb = window.opener[callBack];
+			if(typeof cb=="function"){
+				cb(array);
+			}else{
+				var ifr = window.opener.$("iframe");
+				if(ifr.length>0){
+					cb = ifr[0].contentWindow[callBack];
+					if(typeof cb=="function"){
+						cb(array);
+					}
+				}
+			}
+		}
+		//如果window.opener发现还有iframe则不处理
+		if(window.opener.$("iframe").length==0){
+			window.opener.$('body').css('overflow-y','auto');
+			window.opener.$('html').css('overflow-y','auto');
+		}
+		window.close();
+	}else{
+		if(callBack){
+			window.parent[callBack](array);
+		}
+		window.parent.$('body').css('overflow-y','auto');
+		window.parent.$('html').css('overflow-y','auto');
+		window.parent.$("#dialog_ifr_html").dialog("close");
+	}
+}
+/**
+ * dataTable查询重新发送请求，页数保持不变 如果删除后页面只有一条记录则返回上一行
+ * @param tableId
+ */
+function refreshTable(tableId) {
+	var start = $("#" + tableId).dataTable().fnSettings()._iDisplayStart;
+	var total = $("#" + tableId).dataTable().fnSettings().fnRecordsDisplay();
+	$("#" + tableId).dataTable().fnDraw(false);
+	if ((total - start) == 1) {
+		if (start > 0) {
+			$("#" + tableId).dataTable().fnPageChange('previous', true);
+		}
+	}
+}

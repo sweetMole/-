@@ -1,0 +1,607 @@
+/**全国易制爆字体库**/
+@font-face {
+	font-family: 'yizhibaoqy';
+	src: url('fonts/yizhibaoqy.eot');
+	src: url('fonts/yizhibaoqy.eot?#iefix') format('eot'),url('fonts/yizhibaoqy.woff') format('woff'),url('fonts/yizhibaoqy.ttf') format('truetype'),url('fonts/yizhibaoqy.svg#webiconRegular') format('svg');
+	font-weight: normal;
+	font-style: normal;
+}
+[class^="icon-"], [class*=" icon-"] {
+	/* use !important to prevent issues with browser extensions that change fonts */
+	font-family: 'yizhibaoqy' !important;
+	speak: none;
+	font-style: normal;
+	font-weight: normal;
+	font-variant: normal;
+	text-transform: none;
+	line-height: 1;
+	font-size:20px;
+	/* Better Font Rendering =========== */
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+.icon-1:before {
+	content: "\f001";
+}
+.icon-2:before {
+	content: "\f002";
+}
+.icon-3:before {
+	content: "\f003";
+}
+.icon-4:before {
+	content: "\f004";
+}
+.icon-5:before {
+	content: "\f005";
+}
+.icon-6:before {
+	content: "\f006";
+}
+.icon-7:before {
+	content: "\f007";
+}
+.icon-15:before {
+	content: "\f015";
+}
+.icon-8:before {
+	content: "\f008";
+}
+.icon-9:before {
+	content: "\f009";
+}
+.icon-10:before {
+	content: "\f010";
+}
+.icon-18:before {
+	content: "\f018";
+}
+.icon-19:before {
+	content: "\f019";
+}
+.icon-20:before {
+	content: "\f020";
+	font-size:32px;
+}
+.icon-21:before {
+	content: "\f021";
+	font-size:32px;
+}
+.icon-22:before {
+	content: "\f022";
+}
+.icon-23:before {
+	content: "\f023";
+	font-size:32px;
+}
+.icon-24:before {
+	content: "\f024";
+	font-size: 32px;
+}
+.icon-30:before {
+	content: "\f030";
+}
+.icon-31:before {
+	content: "\f031";
+}
+.icon-32:before {
+	content: "\f032";
+}
+.icon-33:before {
+	content: "\f033";
+}
+.icon-34:before {
+	content: "\f034";
+}
+.icon-35:before {
+	content: "\f035";
+}
+.icon-36:before {
+	content: "\f036";
+}
+.icon-39:before {
+	content: "\f039";
+}
+.icon-40:before {
+	content: "\f040";
+}
+.icon-41:before {
+	content: "\f041";
+}
+.icon-42:before {
+	content: "\f042";
+}
+.icon-43:before {
+	content: "\f043";
+}
+.icon-44:before {
+	content: "\f044";
+}
+.icon-45:before {
+	content: "\f045";
+}
+.icon-46:before {
+	content: "\f046";
+}
+.icon-47:before {
+	content: "\f047";
+}
+.icon-48:before {
+	content: "\f048";
+}
+.icon-50:before {
+	content: "\f050";
+}
+.icon-51:before {
+	content: "\f051";
+}
+.icon-52:before {
+	content: "\f052";
+}
+.icon-53:before {
+	content: "\f053";
+}
+.icon-55:before {
+	content: "\f055";
+}
+.icon-56:before {
+	content: "\f056";
+}
+.icon-57:before {
+	content: "\f057";
+}
+.icon-58:before {
+	content: "\f058";
+}
+.icon-59:before {
+	content: "\f059";
+}
+.icon-11:before {
+	content: "\f011";
+}
+.icon-12:before {
+	content: "\f012";
+}
+.icon-60:before {
+	content: "\f060";
+}
+.icon-61:before {
+	content: "\f061";
+}
+.icon-94:before {
+	content: "\f094";
+}
+.icon-63:before {
+	content: "\f063";
+}
+.icon-64:before {
+	content: "\f064";
+}
+.icon-65:before {
+	content: "\f065";
+}
+.icon-66:before {
+	content: "\f066";
+}
+.icon-67:before {
+	content: "\f067";
+}
+.icon-110:before {
+	content: "\f110";
+}
+.icon-13:before {
+	 content: "\f013";
+ }
+.icon-14:before {
+	content: "\f014";
+}
+.icon-7:before {
+	content: "\f007";
+}
+.icon-69:before {
+	content: "\f069";
+}
+.icon-70:before {
+	content: "\f070";
+}
+.icon-71:before {
+	content: "\f071";
+}
+.icon-72:before {
+	content: "\f072";
+}
+.icon-73:before {
+	content: "\f073";
+}
+.icon-85:before {
+	content: "\f085";
+}
+.icon-74:before {
+	content: "\f074";
+}
+.icon-75:before {
+	content: "\f075";
+}
+.icon-76:before {
+	content: "\f076";
+}
+.icon-77:before {
+	content: "\f077";
+}
+.icon-78:before {
+	content: "\f075";
+}
+.icon-79:before {
+	content: "\f076";
+}
+.icon-80:before {
+	 content: "\f077";
+ }
+.icon-81:before {
+	content: "\f081";
+}
+.icon-82:before {
+	content: "\f082";
+}
+.icon-83:before {
+	content: "\f083";
+}
+.icon-84:before {
+	content: "\f084";
+}
+.icon-25:before {
+	content: "\f025";
+}
+.icon-26:before {
+	content: "\f026";
+}
+.icon-27:before {
+	content: "\f027";
+}
+.icon-86:before {
+	content: "\f086";
+}
+.icon-87:before {
+	content: "\f087";
+}
+.icon-88:before {
+	content: "\f088";
+}
+.icon-16:before {
+	content: "\f016";
+}
+.icon-17:before {
+	content: "\f017";
+}
+.icon-89:before {
+	content: "\f089";
+}
+.icon-90:before {
+	content: "\f090";
+}
+.icon-91:before {
+	content: "\f091";
+}
+.icon-92:before {
+	content: "\f092";
+}
+.icon-93:before {
+	content: "\f093";
+}
+.icon-95:before {
+	content: "\f095";
+}
+.icon-96:before {
+	content: "\f096";
+}
+.icon-97:before {
+	content: "\f097";
+}
+.icon-98:before {
+	content: "\f098";
+}
+.icon-99:before {
+	content: "\f099";
+}
+.icon-100:before {
+	content: "\f0100";
+}
+.icon-101:before {
+	content: "\f101";
+}
+.icon-102:before {
+	content: "\f102";
+}
+.icon-103:before {
+	content: "\f103";
+}
+.icon-104:before {
+	content: "\f104";
+}
+.icon-105:before {
+	content: "\f105";
+}
+.icon-106:before {
+	content: "\f106";
+}
+.icon-107:before {
+	content: "\f107";
+}
+.icon-108:before {
+	content: "\f108";
+}
+.icon-109:before {
+	content: "\f109";
+}
+.icon-110:before {
+	content: "\f110";
+}
+.icon-111:before {
+	content: "\f111";
+}
+.icon-112:before {
+	content: "\f112";
+}
+.icon-113:before {
+	content: "\f113";
+}
+.icon-114:before {
+	content: "\f114";
+}
+.icon-115:before {
+	content: "\f115";
+}
+.icon-116:before {
+	content: "\f116";
+}
+.icon-117:before {
+	content: "\f117";
+}
+.icon-118:before {
+	content: "\f118";
+}
+.icon-28:before {
+	content: "\f028";
+}
+.icon-29:before {
+	content: "\f029";
+}
+.icon-119:before {
+	content: "\f119";
+}
+.icon-120:before {
+	content: "\f120";
+}
+.icon-121:before {
+	content: "\f121";
+}
+.icon-122:before {
+	content: "\f122";
+}
+.icon-123:before {
+	 content: "\f123";
+ }
+.icon-62:before {
+	content: "\f062";
+}
+
+/*追加图标*/
+.icon-124:before {
+	 content: "\f124";
+ }
+.icon-125:before {
+	 content: "\f125";
+ }
+.icon-126:before {
+	 content: "\f126";
+ }
+.icon-127:before {
+	 content: "\f127";
+ }
+.icon-128:before {
+	 content: "\f128";
+ }
+.icon-129:before {
+	 content: "\f129";
+ }
+.icon-130:before {
+	 content: "\f130";
+ }
+.icon-131:before {
+	 content: "\f131";
+ }
+.icon-132:before {
+	 content: "\f132";
+ }
+.icon-133:before {
+	 content: "\f133";
+ }
+.icon-134:before {
+	 content: "\f134";
+ }
+.icon-135:before {
+	 content: "\f135";
+ }
+.icon-136:before {
+	 content: "\f136";
+ }
+.icon-137:before {
+	 content: "\f137";
+ }
+.icon-138:before {
+	 content: "\f138";
+ }
+.icon-139:before {
+	 content: "\f139";
+ }
+.icon-140:before {
+	 content: "\f140";
+ }
+.icon-141:before {
+	 content: "\f141";
+ }
+.icon-142:before {
+	 content: "\f142";
+ }
+.icon-143:before {
+	 content: "\f143";
+ }
+.icon-144:before {
+	 content: "\f144";
+ }
+ .icon-145:before {
+	 content: "\f145";
+ }
+.icon-146:before {
+	 content: "\f146";
+ }
+ /*追加图标*/
+.icon-147:before {
+	 content: "\f147";
+ }
+.icon-148:before {
+	 content: "\f148";
+ }
+.icon-149:before {
+	 content: "\f149";
+ }
+.icon-150:before {
+	 content: "\f150";
+ }
+.icon-151:before {
+	 content: "\f151";
+ }
+.icon-152:before {
+	 content: "\f152";
+ }
+.icon-153:before {
+	 content: "\f153";
+ }
+.icon-154:before {
+	 content: "\f154";
+ }
+ .icon-155:before {
+	 content: "\f155";
+ }
+.icon-156:before {
+	 content: "\f156";
+ }
+ 
+ 
+ [class^="qiye-"], [class*=" qiye-"] {
+	/* use !important to prevent issues with browser extensions that change fonts */
+	font-family: 'yizhibaoqy' !important;
+	speak: none;
+	font-style: normal;
+	font-weight: normal;
+	font-variant: normal;
+	text-transform: none;
+	line-height: 1;
+	font-size:20px;
+	/* Better Font Rendering =========== */
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+.qiye-1:before {
+	content: "\f157";
+}
+.qiye-2:before {
+	content: "\f158";
+}
+.qiye-3:before {
+	content: "\f159";
+}
+.qiye-4:before {
+	content: "\f161";
+}
+.qiye-5:before {
+	content: "\f162";
+}
+.qiye-6:before {
+	content: "\f163";
+}
+.qiye-7:before {
+	content: "\f164";
+}
+.qiye-8:before {
+	content: "\f165";
+}
+.qiye-9:before {
+	content: "\f166";
+}
+.qiye-10:before {
+	content: "\f167";
+}
+.qiye-11:before {
+	content: "\f168";
+}
+.qiye-12:before {
+	content: "\f020";
+}
+.qiye-13:before {
+	content: "\f027";
+}
+.qiye-down:before {
+	content: "\f169";
+}
+.qiye-up:before {
+	content: "\f170";
+}
+.qiye-in:before {
+	content: "\f095";
+}
+.qiye-out:before {
+	content: "\f093";
+}
+.qiye-176:before {
+	content: "\f176";
+}
+.qiye-177:before {
+	content: "\f177";
+}
+.qiye-178:before {
+	content: "\f178";
+}
+.qiye-179:before {
+	content: "\f179";
+}
+.qiye-180:before {
+	content: "\f180";
+}
+.qiye-181:before {
+	content: "\f181";
+}
+
+/*2017-10-12一级菜单图标追加*/
+.icon-157:before {
+	content: "\f154";/*治安防范*/
+}
+.icon-158:before {
+	content: "\f144";/*信息互动*/
+}
+.icon-159:before {
+	content: "\f136";/*考核评比*/
+}
+.icon-160:before {
+	content: "\f145";/*系统设置*/
+}
+.icon-161:before {
+	content: "\f155";/*转停报告*/
+}
+.icon-162:before {
+	content: "\f182";/*基础信息*/
+}
+.icon-163:before {
+	content: "\f152";/*台账管理*/
+}
+.icon-164:before {
+	content: "\f153";/*查询统计*/
+}
+.icon-165:before {
+	content: "\f135";/*分析研判*/
+}
+
+
+

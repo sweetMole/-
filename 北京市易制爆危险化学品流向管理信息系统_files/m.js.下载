@@ -1,0 +1,993 @@
+//外部定义op=1,2,3.5:添加
+//menu,前台分页
+var yyzzCq="4099-01-01"; //营业执照长期
+$(function() {
+	//	查询展开
+	$(".more-btn").click(function(){
+		$(".more-info").slideToggle("slow");
+		$(this).html($.trim($(this).text())=='更多查询'?'隐藏更多<i class="qiye-up"></i>':'更多查询<i class="qiye-down"></i>');
+		return false;
+	});
+	if (op==1) {
+		$("#search").click(ajaxSearch1).click();
+		$("#reset").click(function() {
+			$("#compName").val("");
+			$("#faren").val("");
+			$("#compNature").val("");
+			$("#yinyezhizhao").val("");
+			$("#zhianbaoweirenNum").val("");
+		});
+	} else if (op==2) {
+		$("#gps").click(function(){
+			goTo("/gps/show?ck=true&tid="+gps, true); //查看坐标
+		});
+		if(sydwXf=='true'){
+			$("#nosydwXf").remove();
+		}else{
+			$("#sydwXf").remove();
+		}
+		//由于gps的那个也有查看二字因此要过滤掉那个
+		$("a:contains('查看')").not(":contains('查看地图')").click(function(){
+			var fileid = this.className.split("_");
+			detailDwbaFile(fileid.shift(),fileid.join("_"));
+		});
+		$("a:contains('下载')").click(function(){
+			var fileid = this.className.split("_");
+			downDwFile(fileid.shift(),fileid.join("_"));
+		});
+		chooseAreaAndComp({
+			domId : "areaCodeDiv",
+			display : {
+				compId : -1
+			},
+			className : {
+				province : "form-control select-inline",
+				city : "form-control select-inline",
+				county : "form-control select-inline",
+				street : "form-control select-inline"
+			},
+			defaultValue : {
+				province : province,
+				city : city,
+				county : county,
+				street : street
+			},
+			disabled:{
+				province:true,
+				city:true,
+				county:true,
+				street:true
+			},
+			paras : {
+				async : false
+			}
+		});
+		$("#choose").change(function(){
+			if($(this).val()=="是"){
+				if($("#content").val()==null || $("#content").val()==""){
+					$("#content").val("同意");
+				}
+			} else{
+				if($("#content").val()=="同意"){
+					$("#content").val("");
+				}
+			}
+		});
+		$.formValidator.initConfig({
+			formId : "formShenHe",
+			onSuccess:function(){
+				return isAffirm();
+			}
+		});
+		$("#content").inputValidator({min:1,max:2000,onError:"请填写审核信息，长度1~2000字符"});
+		$("#choose").inputValidator({min:1,onError:"请选择审批意见"});
+	} else if (op==5 || op==8 || op==9) {
+		if(op==5 || op==9){
+			$("#add").click(function(){
+				$("#form1").submit();
+			});
+		}
+		$("#yyzzCq").click(function(){
+			if(this.checked){
+				$("#yinyezhizhaoYxq").val(yyzzCq).hide();
+			}else{
+				$("#yinyezhizhaoYxq").val("").show();
+			}
+		});
+		dynamicAutoComplete({target:"sydwLeixing",otherTarget:{sydwLeixingId:"fieldValue"},
+			data:{maxNum:0,dictName:"使用单位细化类型"},url:"/common/authc/dictionaryComplete",minLength:0,closeFun:getSydwLeixing});
+		dynamicAutoComplete({target:"xxdwLeixing",otherTarget:{xxdwLeixingId:"fieldValue"},
+			data:{maxNum:0,dictName:"学校单位细化类型"},url:"/common/authc/dictionaryComplete",minLength:0});
+		if(op==5 || op==8){
+			$("#biaozhu,#gps").click(function(){
+				goTo("/gps/biaozhu?localGps="+encodeURIComponent(cityName), true);
+			});
+			if($("#xxdwLeixing").val()==""){
+				$("#xxlx").hide();
+			}
+			if(sydwXf=='false'){
+				$("#sydwLx").remove();
+			}
+		} else if(op==9){
+			$("#ps").click(function() {
+				ShowDialog({url:'/common/s/searchTopJiguan?select=FJ-PS&khtj=false&onlyMe=true',width:550,height:500,title:"选择上级机关"});
+			});
+			$("#sydwLx").hide();
+			$("#xxlx").hide();
+			chooseAreaAndComp({
+				domId : "areaCodeDiv",
+				display : {
+					compId : -1
+				},
+				className : {
+					province : "form-control select-inline",
+					city : "form-control select-inline",
+					county : "form-control select-inline",
+					street : "form-control select-inline"
+				},
+				paras : {
+					async : false
+				}
+			});
+			if(province!=""){
+				$("#province").val(province).change();
+				$("#province").attr("disabled",true);
+			}
+			if(city!=""){
+				$("#city").val(city).change();
+				$("#city").attr("disabled",true);
+			}
+			if(county!=""){
+				$("#county").val(county).change();
+				$("#county").attr("disabled",true);
+			}
+			if(street!=""){
+				$("#street").val(street).change();
+				$("#street").attr("disabled",true);
+			}
+			$("#biaozhu,#gps").click(function(){
+				goTo("/gps/biaozhu?localGps="+encodeURIComponent(defaultGpsName()), true);
+			});
+			$("#compNature").change(function(){
+				$("#anquanshengchanXkzCheck,#jingyingXkzCheck,#anquanshiyongXkzCheck").attr("checked",false).attr("disabled",false);
+				$(".anquanshengchanXkzPzjg,.jingyingXkzPzjg").hide();
+				if($(this).val()=='SC'){
+					$("#anquanshengchanXkzCheck").click().attr("disabled", true);
+				} else if(['XS','CC'].indexOf($(this).val())!=-1) {
+					$("#jingyingXkzCheck").click().attr("disabled", true);
+				}/* else if(['CZ','SY'].indexOf($(this).val())!=-1) {
+					$("#anquanshiyongXkzCheck").click().attr("disabled", true);
+				}*/
+				if(sydwXf=='true' && $(this).val()=='SY'){
+					$("#sydwLx").show();
+					$("#sydwLeixing").unFormValidator(false);
+				}else{
+					$("#sydwLx").hide();
+					$("#sydwLeixingId").val("");
+					$("#sydwLeixing").val("");
+					$("#xxdwLeixingId").val("");
+					$("#xxdwLeixing").val("");
+					$("#sydwLeixing").unFormValidator(true);
+					$("#xxdwLeixing").unFormValidator(true);
+				}
+			});
+		}
+		$("#zhuceCompManagerName").click(function() {
+			ShowDialog({url:'/common/s/searchTopJiguan?select=FJ-PS&khtj=true&callback=setZhuceRegi',width:550,height:500,title:"选择注册地管辖机关"});
+		});
+		if($("#anquanshengchanXkzCheck").is(':checked') == false){
+			$(".anquanshengchanXkzPzjg").hide();
+		}
+		if($("#jingyingXkzCheck").is(':checked') == false){
+			$(".jingyingXkzPzjg").hide();
+		}
+		if($("#anquanshiyongXkzCheck").is(':checked') == false){
+			$(".anquanshiyongXkzPzjg").hide();
+		}
+		if($("#anquanpingjiabaogaoCheck").is(':checked') == false){
+			$(".anquanpingjiabaogaoApjg").hide();
+		}
+		$("#yinyezhizhaoYxq,#anquanshengchanXkzYxq,#jingyingXkzYxq,#anquanshiyongXkzYxq,#anquanpingjiabaogaoYxq").datepicker({minDate : 0, yearRange:":2160"});
+		$("#yinyezhizhaoYxq,#anquanshengchanXkzYxq,#jingyingXkzYxq,#anquanshiyongXkzYxq,#anquanpingjiabaogaoYxq").attr("readonly", true);
+		$("input[name='anquanshengchanXkzCheck']").bind("click",function(){
+			if($("input[name='anquanshengchanXkzCheck']").is(':checked')){
+				$(".anquanshengchanXkzPzjg").show();
+			}else{
+				$(".anquanshengchanXkzPzjg").hide();
+			}
+		});
+		$("input[name='jingyingXkzCheck']").bind("click",function(){
+			if($("input[name='jingyingXkzCheck']").is(':checked')){
+				$(".jingyingXkzPzjg").show();
+			}else{
+				$(".jingyingXkzPzjg").hide();
+			}
+		});
+		$("input[name='anquanshiyongXkzCheck']").bind("click",function(){
+			if($("input[name='anquanshiyongXkzCheck']").is(':checked')){
+				$(".anquanshiyongXkzPzjg").show();
+			}else{
+				$(".anquanshiyongXkzPzjg").hide();
+			}
+		});
+		$("input[name='anquanpingjiabaogaoCheck']").bind("click",function(){
+			if($("input[name='anquanpingjiabaogaoCheck']").is(':checked')){
+				$(".anquanpingjiabaogaoApjg").show();
+			}else{
+				$(".anquanpingjiabaogaoApjg").hide();
+			}
+		});
+		$("#yinyezhizhaoFj").click(fileUpload);
+		$("#anquanshengchanXkzFj").click(fileUpload);
+		$("#jingyingXkzFj").click(fileUpload);
+		$("#anquanshiyongXkzFj").click(fileUpload);
+		$("#anquanpingjiabaogaoFj").click(fileUpload);
+		
+		$.formValidator.initConfig({
+			onSuccess:function(){
+				if($(".yinyezhizhaoFj").find("a").length<1){
+					alert("请上传营业执照");
+					return false;
+				}
+				if($("input[name='anquanshengchanXkzCheck']").is(':checked')){
+					if($("#anquanshengchanXkzPzjg").val()==null || $("#anquanshengchanXkzPzjg").val()==""){
+						alert("请输入危化品安全生产许可证批准机关");
+						return false;
+					}
+					if($("#anquanshengchanXkz").val()==null || $("#anquanshengchanXkz").val()==""){
+						alert("请输入危化品安全生产许可证号");
+						return false;
+					}
+					if($("#anquanshengchanXkzYxq").val()==null || $("#anquanshengchanXkzYxq").val()==""){
+						alert("请输入危化品安全生产许可证有效期");
+						return false;
+					}
+					if($(".anquanshengchanXkzFj").find("a").length<1){
+						alert("请上传危化品安全生产许可证附件");
+						return false;
+					}
+				} else{
+					if($(".anquanshengchanXkzFj").find("a").length>0){
+						alert("如不上传危化品安全生产许可证，请先删除安全生产许可证附件");
+						return false;
+					}
+				}
+				if($("input[name='jingyingXkzCheck']").is(':checked')){
+					if($("#jingyingXkzPzjg").val()==null || $("#jingyingXkzPzjg").val()==""){
+						alert("请输入危险化学品经营许可证批准机关");
+						return false;
+					}
+					if($("#jingyingXkz").val()==null || $("#jingyingXkz").val()==""){
+						alert("请输入危险化学品经营许可证号");
+						return false;
+					}
+					if($("#jingyingXkzYxq").val()==null || $("#jingyingXkzYxq").val()==""){
+						alert("请输入危险化学品经营许可证有效期");
+						return false;
+					}
+					if($(".jingyingXkzFj").find("a").length<1){
+						alert("请上传危险化学品经营许可证附件");
+						return false;
+					}
+				} else{
+					if($(".jingyingXkzFj").find("a").length>0){
+						alert("如不上传危险化学品经营许可证，请先删除经营许可证附件");
+						return false;
+					}
+				}
+				if($("input[name='anquanshiyongXkzCheck']").is(':checked')){
+					if($("#anquanshiyongXkzPzjg").val()==null || $("#anquanshiyongXkzPzjg").val()==""){
+						alert("请输入危险化学品安全使用许可证批准机关");
+						return false;
+					}
+					if($("#anquanshiyongXkz").val()==null || $("#anquanshiyongXkz").val()==""){
+						alert("请输入危险化学品安全使用许可证号");
+						return false;
+					}
+					if($("#anquanshiyongXkzYxq").val()==null || $("#anquanshiyongXkzYxq").val()==""){
+						alert("请输入危险化学品安全使用许可证有效期");
+						return false;
+					}
+					if($(".anquanshiyongXkzFj").find("a").length<1){
+						alert("请上传危险化学品安全使用许可证附件");
+						return false;
+					}
+				} else{
+					if($(".anquanshiyongXkzFj").find("a").length>0){
+						alert("如不上传危险化学品安全使用许可证，请先删除安全使用许可证附件");
+						return false;
+					}
+				}
+				if($("input[name='anquanpingjiabaogaoCheck']").is(':checked')){
+					if($("#anquanpingjiabaogaoApjg").val()==null || $("#anquanpingjiabaogaoApjg").val()==""){
+						alert("请输入危险化学品安全评估报告安评机构");
+						return false;
+					}
+					if($("#anquanpingjiabaogao").val()==null || $("#anquanpingjiabaogao").val()==""){
+						alert("请输入危险化学品安全评估报告编号");
+						return false;
+					}
+					if($("#anquanpingjiabaogaoYxq").val()==null || $("#anquanpingjiabaogaoYxq").val()==""){
+						alert("请输入危险化学品安全评估报告有效期");
+						return false;
+					}
+					if($(".anquanpingjiabaogaoFj").find("a").length<1){
+						alert("请上传危险化学品安全评估报告附件");
+						return false;
+					}
+				} else{
+					if($(".anquanpingjiabaogaoFj").find("a").length>0){
+						alert("如不上传危险化学品安全评估报告，请先删除安全评估报告附件");
+						return false;
+					}
+				}
+				var dir = [];
+				var isTj = false;
+				$("[name='wupinid']").each(
+					function(){
+						if($.inArray(this.value,dir)!=-1){
+							alert("易制爆化学品不能相同");
+							isTj = true;
+							return false;
+						}else{
+							dir.push(this.value);
+						};
+					});
+				if(isTj){
+					return false;
+				}
+				if(confirm("确认提交?")){
+					msg();
+					$("[disabled]").each(function() {//移除disable,后台方可取值
+						$(this).attr("disabled", false);
+		            });
+					return true;
+				} else{
+					return false;
+				}
+			}
+		});
+		var index = $("#wupin").find("tr").length-1;
+		$("#wupin").find("tr").eq(1).attr("class",index);
+		if(op==5 || op==9){
+			dynamicAutoComplete({target:'wupinname',otherTarget:{wupinid:"wupinid"},data:{},url:"/common/authc/wupinComplete",minLength:0});
+			$("#wupinname").inputValidator({min:1,onError:"请选择易制爆危险化学品品名"});
+			$("#wupinid").inputValidator({min:1,onError:"请选择易制爆危险化学品品名"});
+			$("#wupinname").parent().parent().find(":checkbox").inputValidator({min:1,onError:"需至少选择一个涉及类型"});
+		}else if(op==8){
+			$("a[title='删除此附件']").click(deleteBeianFile);
+			$("a:contains('查看')").click(function(){
+				var fileid = this.className.split("_");
+				detailDwbaFile(fileid.shift(),fileid.join("_"));
+			});
+			$("a:contains('下载')").click(function(){
+				var fileid = this.className.split("_");
+				downDwFile(fileid.shift(),fileid.join("_"));
+			});
+			for(var i=0;i<index;i++){
+				var ot = {};
+				ot["wupinid"+i] = "wupinid";
+				dynamicAutoComplete({target:'wupinname'+i,otherTarget:ot,data:{},url:"/common/authc/wupinComplete",minLength:0});
+				$("#deleteWupin"+i).click(function(){	 	  	   
+				  	  $(this).parent().parent().remove();
+				});
+				$("#wupinname"+i).inputValidator({min:1,onError:"请选择易制爆危险化学品品名"});
+				$("#wupinid"+i).inputValidator({min:1,onError:"请选择易制爆危险化学品品名"});
+				$("#wupinname"+i).parent().parent().find(":checkbox").inputValidator({min:1,onError:"需至少选择一个涉及类型"});
+			}
+		}
+		if(op==9){
+			$("#tybm").inputValidator({min:5,max:40,onError:"请填写统一社会信用代码,长度40个字节以内"})
+			.regexValidator({regExp:"tybm",param:"g",onError:"你输入的统一社会信用代码不正确，由大写字母(不使用I、O、Z、S、V)和数字共18位字符组成，或15位纯数字的工商营业执照号码，或由1位大写字母或数字加7位数字加-加1位大写字母或数字组成共10位字符的组织机构代码"}).ajaxValidator({
+				type:"post",
+				url :"/common/s/checkTybm",
+				data:{t:"zc"},
+				dataType:"json",	//需写明返回类型
+				success : function(rs){
+					if(rs.code==0){
+						alert("检测统一社会信用代码是否已注册失败");
+						return;
+					}
+					if(rs.data!='ok'){
+						if(confirm(rs.data+"。如果确认将会和此公司形成集团关系。请确认填写是否正确！")){
+							return true;
+						}else{
+							alert(rs.data+"请联系管理员!"+$("#tybm").val());
+							$("#tybm").val('');
+							return false;
+						}
+					}else{
+						return true;
+					}
+				},
+				buttons: $("#button"),
+				error: function(jqXHR, textStatus, errorThrown){alert("服务器没有返回数据，可能服务器忙，请重试"+errorThrown);},
+				onError : ""
+			});
+			$("#compNature").inputValidator({min:1, onError:"请选择单位类型"});
+			$("#compManager").inputValidator({min:1, onError:"请选择上级机关"});
+			$("#name").inputValidator({min:5,max:200,onError:"请填写单位名称，长度5~200字节"})
+			.ajaxValidator({
+			    type:"post",
+				url :"/common/s/checkUnitName",
+				data:{t:"zc"},
+				dataType:"json",	//需写明返回类型
+				success : function(rs){
+					if(rs.code==0){
+						alert("检测单位是否已注册失败");
+						return;
+					}
+					if(rs.data!='ok'){
+						alert("sorry,检测未通过,"+$("#name").val());
+						$("#name").val('');
+						return false;
+					}else{
+			           	return true;
+					}
+				},
+				buttons: $("#button"),
+				error: function(jqXHR, textStatus, errorThrown){alert("服务器没有返回数据，可能服务器忙，请重试"+errorThrown);},
+				onError : ""
+			});
+			$("#province").inputValidator({min:1,onError:"请选择省份"});
+			$("#city").inputValidator({min:1,onError:"请选择市"});
+			$("#county").inputValidator({min:1,onError:"请选择区(县)"});
+			$("#street").inputValidator({min:1,onError:"请选择街道(镇)"});
+		} else{
+			$("#yinyezhizhao").inputValidator({min:10,onError:"请填写正确的营业执照号"});
+		}
+		$("#compPhone").inputValidator({max:20,onError:"请填写单位联系电话，长度小于20字节"}).regexValidator({regExp:["tel","mobile"],onError:"请正确填写单位联系电话"});
+		$("#compAddress").inputValidator({min:1,max:200,onError:"请填写单位地址，长度小于200字节"});
+		$("#compManagerMinjing").formValidator({empty:true}).inputValidator({min:4,max:150,onError:"责任民警姓名长度4~150字节"}).regexValidator({regExp:"personName",onError:"姓名只能是中文,字母,且不以空格开头和结尾"});
+		$("#faren").inputValidator({min:4,max:50,onError:"姓名长度4~50字节"}).regexValidator({regExp:"personName",onError:"姓名只能是中文,字母,且不以空格开头和结尾"});
+		$("#farenzjhmtype").inputValidator({min:1,onError:"请选择证件类型"});
+		$("#farenzjhm").inputValidator({min:1,max:18,onError:"必须填写证件号码,不超过18位"})
+		.functionValidator({
+			fun:function(val){
+				if($("#farenzjhmtype").val()=="111") {
+					return isCardID(val);
+				}
+				return true;
+			},dependOthers:[$("#farenzjhmtype")]
+		});
+		$("#farenPhone").inputValidator({max:20,onError:"请填写单位联系电话，长度小于20字节"}).regexValidator({regExp:["tel","mobile"],onError:"请正确填写法人电话"});
+		$("#zhianboweifuzeren").inputValidator({min:4,max:50,onError:"姓名长度4~50字节"}).regexValidator({regExp:"personName",onError:"姓名只能是中文,字母,且不以空格开头和结尾"});
+		$("#zhibandianhua").inputValidator({max:18,onError:"请填写值班室电话，长度小于18字节"}).regexValidator({regExp:["tel","mobile"],onError:"请正确填写值班室电话"});
+		$("#lianxiren").inputValidator({min:4,max:50,onError:"姓名长度4~50字节"}).regexValidator({regExp:"personName",onError:"姓名只能是中文,字母,且不以空格开头和结尾"});
+		$("#lianxirenPhone").inputValidator({max:20,onError:"请填写联系人电话，长度小于20字节"}).regexValidator({regExp:["tel","mobile"],onError:"请正确填写联系人电话"});
+		$("#jingbanren").inputValidator({min:4,max:50,onError:"姓名长度4~50字节"}).regexValidator({regExp:"personName",onError:"姓名只能是中文,字母,且不以空格开头和结尾"});
+		$("#jingbanrenPhone").inputValidator({max:20,onError:"请填写经办人电话，长度小于20字节"}).regexValidator({regExp:["tel","mobile"],onError:"请正确填写经办人电话"});
+		$("#gps").inputValidator({min:1,onError:"请选择地理坐标"});
+		$("input[name=jinkou]").inputValidator({min:1,onError:"请选择是否进口"});
+		$("input[name=chukou]").inputValidator({min:1,onError:"请选择是否出口"});
+		$("input[name=jyky]").inputValidator({min:1,onError:"请选择是否教育科研"});
+		$("#compManager").inputValidator({min:1, onError:"请选择上级机关"});
+		$("#zhuceCompManagerName,#zhuceCompManager").inputValidator({min:1, onError:"请选择注册地管辖机关"});
+		$("#zhuceAddress").inputValidator({min:1, onError:"请填写企业注册地址"});
+		$("input[name=baojingzhuangzhi]").inputValidator({min:1,onError:"请选择是否有报警装置"});
+		$("#sydwLeixing").inputValidator({min:1,onError:"请选择使用单位类型"});
+		$("#xxdwLeixing").inputValidator({min:1,onError:"请选择学校类型"});
+		$("#yinyezhizhaoYxq").inputValidator({min:1,onError:"请填写营业执照有效期"});
+		$("#kufangNum").inputValidator({max:10,onError:"治安保卫人数超出范围"}).regexValidator({regExp:"num1",onError:"请填写正确仓库数"});
+		$("#zhianbaoweirenNum").inputValidator({max:10,onError:"治安保卫人数超出范围"}).regexValidator({regExp:"num1",onError:"请填写正确的治安保卫人数"});
+		$("#shipinjiankongNum").inputValidator({max:10,onError:"视频监控探头数超出范围"}).regexValidator({regExp:"num1",onError:"请填写正确的视频监控探头数"});
+
+		getSydwLeixing();
+		$("#addWupin").click(addWupin);
+		$("#back").click(function(){
+			window.location="shenpichaxun";
+		});
+	} else if(op==6 || op==7){
+		$("#time1,#time2").datepicker({
+			maxDate : 0
+		});
+		if(isGa){
+			$("#search").click(ajaxSearch2);
+		}
+		ajaxSearch2();
+		$("#reset").click(function(){
+			$("input").val("");
+			$("#compNature").val("");
+		});
+		$("#ps").click(function(){
+			ShowDialog({url:'/common/s/searchTopJiguan?select=ST-PS&khtj=false&onlyMe=true',width:550,height:500,title:"选择上级机关"});
+		});
+		$("#zhuceCompManagerName").click(function(){
+			ShowDialog({url:'/common/s/searchTopJiguan?select=ST-PS&khtj=true&callback=setZhuceRegi',width:550,height:500,title:"选择注册地管辖机关"});
+		});
+	} else if(op==20){//修改上级机关
+		
+		dynamicAutoComplete({url:"/common/authc/danweiComplete",target:"mcCompName3",
+			data:{snw:"0",compType:"GA",showZhuce:true,ofMy:true},otherTarget:{"mcCompId3":"compId"}});
+		$("#sub").click(setGuanxi);
+	}
+});
+// 设置上级管辖机关
+function setGuanxi(){
+	var pa = {};
+	pa.compId2 = childId;
+	pa.compId3 = $("#mcCompId3").val();
+	//增加 town和county传入后台 syj20160303
+	pa.town="";
+	pa.county="";
+	pa.zrMinjing = $("#zrMinjing").val();
+	
+	if(pa.compId2!="" && pa.compId3!=""){
+		pa.quanxian=null;
+		pa.zhuanyi=1;
+		if(!confirm("确认设置此管辖关系吗.")){
+			return;
+		}
+		$.postRest("/ad/insertManager",pa,function(rs){
+			if(rs.code==1){
+				var d = rs.data.split(":");
+				if(d[0]=="ok"){
+					var zy_rs = $("#zy_rs").empty();
+					if(pa.quanxian==1){
+						zy_rs.append("<li>仅查看关系设置成功,ID:"+d[1]+"</li>");
+					}else{
+						zy_rs.append("<li>管辖关系设置成功,新编码:"+d[1]+",以下为受影响单位:</li>");
+						var xjdw=d.slice(2);			//下级单位json字符串,可能为"null"字符串
+						if(xjdw!="null"){
+							var da = $.parseJSON(xjdw.join(":"));
+							for ( var i = 0; i < da.length; i=i+1) {
+								//var n = sfGa(da[i].nature)?"ga":"qy";
+								var n = chengduIndex([da[i].nature])[0]==0?"qy":"ga";
+								zy_rs.append("<li id='"+da[i].id+"' class='"+n+"'>"+da[i].name+"</li>");
+							}
+						}
+						if(pa.zhuanyi==1){
+							zy_rs.append("<li>由于已选择自动资料转移,即将执行.请留意单位名后的提示,如未执行成功请手工执行.</li>");
+							var lis = zy_rs.children("[id]");
+							zidongzhuanyi(lis,0);
+						}else{
+							zy_rs.append("<li>提示: 未开启自动区划转移,请在'单位查询'模块手工操作.</li>");
+						}
+					}
+				}else{
+					alert(d1);
+				}
+			}else{
+				alert(rs.info);
+			}
+		});
+	}
+}
+
+function zidongzhuanyi(lis,i){
+	if(i>=lis.length){
+		return;
+	}
+	var li = lis.eq(i);i=i+1;
+	$.postRest("/userunit/repairDataAfterChangeArea",{area1:encodeURIComponent(li.attr("id"))},function(rs){
+		if(rs.code==1 && rs.data=="ok"){
+			li.append("&nbsp;&nbsp;&nbsp;&nbsp;<span class='font_green'>转移成功</span>");
+		}else{
+			li.append("&nbsp;&nbsp;&nbsp;&nbsp;<span class='font_red'>"+rs.info+"</span>");
+		}
+		zidongzhuanyi(lis,i);
+	});
+}
+/**
+ * 选择上级机关回调函数
+ */
+function setRegi(arr){
+	$("#ps").val(arr[0][1]);
+	$("#compManager").val(arr[0][0]);
+}
+/**
+ * 选择注册地上级机关回调函数
+ */
+function setZhuceRegi(arr){
+	$("#zhuceCompManagerName").val(arr[0][1]);
+	$("#zhuceCompManager").val(arr[0][0]);
+}
+function ajaxSearch1() {
+	if($.fn.dataTable.isDataTable("#example1")){
+		$("#example1").DataTable({"retrieve": true}).ajax.reload();
+		return;
+	}
+	
+	$("#example1").dataTable(
+			{
+				"language" : dataTable_language,
+				// "paging" : true,// 分页按钮,默认为true
+				"searching" : false,
+				// "lengthChange" : true,// 每行显示记录数,默认为true
+				"lengthMenu" : [ 10, 20, 50, 100 ],
+				"pageLength" : 10,// 每页显示行数
+				// "autoWidth" : true,//默认值为true
+				// "scrollX": true,
+				"scrollY" : "70%",// 屏幕不够时会产生横向滚动条,不会纵向
+				// "scrollCollapse" :
+				// false,//存在一个标题错位的bug,如为false则存在缩小窗口表格不缩小而显示不全的bug
+				"pagingType" : "full_numbers", // 分页样式
+				"processing" : true,
+				"serverSide" : true,
+				"destroy" : true,
+				"order" : [ 1, "asc" ],// 优先级高于columns.orderable
+				"columns" : [ {
+					"title" : "序号",
+					"data" : null,
+					"orderable" : false
+				}, {
+					"title" : "单位名称",
+					"data" : "compName"
+				}, {
+					"title" : "单位地址",
+					"data" : "compAddress",
+					"orderable" : false
+				}, {
+					"title" : "单位法人",
+					"data" : "faren",
+					"orderable" : false
+				}, {
+					"title" : "单位类型",
+					"data" : "compNature",
+					"render" : function(data, type, full, meta) {
+						return getCompNature[data];
+					}
+				}, {
+					"title" : "营业执照",
+					"data" : "yinyezhizhao",
+					"orderable" : false
+				}, {
+					"title" : "监控数量",
+					"data" : "shipinjiankongNum"
+				}, {
+					"title" : "操作项",
+					"data" : null,
+					"orderable" : false
+				} ],
+				"ajax" : retrieveData,
+				"createdRow" : function(row, data, dataIndex) {
+					var td = $(row).attr("id", data["dwbaId"]).children();
+					var api = this.api();
+					td.first().text(dataIndex+1+api.page()*api.page.len());
+					var is = td.last().html(
+							"<i class='fa fa-file-text-o' title='单位详情'></i>")
+							.find("i").css("cursor", "pointer");
+					is.eq(0).click(detail);
+				}
+			});
+}
+function retrieveData(data_, callback_, settings_) {
+	// 额外参数绑入data_,后台对应直接参数绑定并转java(参数名必须为data)
+	data_ = serializeForm("form1", data_);
+
+	// 异步取得
+	$.postRest("/comp/list", {
+		data : JSON.stringify(data_)
+	}, callback_);
+}
+function detail() {
+	var a = $(this), id = a.parent().parent().attr("id");
+	window.location = "authc/detail?model="+model+"&id="+id;
+}
+function ajaxSearch2() {
+	var shijianTitle = "备案时间";
+	var shijianName = "createdate";
+	if(op==7){
+		shijianTitle = "备案通过时间";
+		shijianName = "dwbaTongGuoShiJian";
+	}
+	if($.fn.dataTable.isDataTable("#example1")){
+		$("#example1").DataTable({"retrieve": true}).ajax.reload();
+		return;
+	}
+	
+	$("#example1").dataTable(
+	{
+		"language" : dataTable_language,
+		"paging" : isGa,// 分页按钮,默认为true
+		"lengthChange" : isGa,// 每行显示记录数,默认为true
+		"info" : isGa,// 是否表格左下角的信息，默认未true
+		"searching" : false,
+		"lengthMenu" : [ 10, 20, 50, 100 ],
+		"pageLength" : 10,// 每页显示行数
+		// "autoWidth" : true,//默认值为true
+		// "scrollX": true,
+		"scrollY" : "70%",// 屏幕不够时会产生横向滚动条,不会纵向
+		// "scrollCollapse" :
+		// false,//存在一个标题错位的bug,如为false则存在缩小窗口表格不缩小而显示不全的bug
+		"pagingType" : "full_numbers", // 分页样式
+		"processing" : true,
+		"serverSide" : true,
+		"destroy" : true,
+//				"ordering": false, 		// 禁止排序
+		"order" : [ 6, "desc" ],// 优先级高于columns.orderable
+		"columns" : [{
+			"title" : "序号",
+			"data" : null,
+			"orderable" : false
+		}, {
+			"title" : "单位名称",
+			"data" : "0",
+			"orderable" : false
+		}, {
+			"title" : "单位法人",
+			"data" : "2",
+			"orderable" : false
+		}, {
+			"title" : "单位类型",
+			"data" : "3",
+			"orderable" : false,
+			"render" : function(data) {
+				return getCompNature[data];
+			}
+		}, {
+			"title" : "营业执照",
+			"data" : "4",
+			"orderable" : false
+		}, {
+			"title" : "监控数量",
+			"data" : "5",
+			"orderable" : false
+		}, {
+			"title" : shijianTitle,
+			"data" : "6",
+			"name" : shijianName,
+			"orderable" : true
+		}, {
+			"title" : "备案状态",
+			"data" : "7",
+			"orderable" : false,
+			"render" : function(data) {
+				return '<span class="nodename">'+data+'</span>';
+			}
+		}, {
+			"title" : "注销状态",
+			"data" : "8",
+			"orderable" : false,
+			"render" : function(data) {
+				switch (data) {
+				case 0:
+					return "未注销";
+				case 1:
+					return "已注销";
+				default:
+					return "状态异常";
+				}
+			}
+		}, {
+			"title" : "操作项",
+			"data" : "10",
+			"orderable" : false
+		}],
+		"ajax" : retrieveData2,
+		"createdRow" : function(row, data, dataIndex){
+			var td = $(row).attr("id", data[9]).children();
+			var api = this.api();
+			td.first().text(dataIndex+1+api.page()*api.page.len());
+			var is = td.last();
+			is.find("i").css("cursor", "pointer");
+			is.find("i[title='重新递交']").click(chongxindijiao);
+			is.find("i[title='删除']").click(toDelete);
+			is.find("i[title='审批操作']").click(shenpi);
+			is.find("i[title='详情']").click(detail);
+			is.find("i[title='修改']").click(update);
+			is.find("i[title='注销']").click(1, del);
+			is.find("i[title='恢复']").click(0, del);
+			
+			is.find("i[title='打印备案证明']").click(function(){ 
+				var id = $(this).parent().parent().attr("id");
+				ShowDialog({url:'/static/jsp/comp/printComp.html?id='+id,title:'打印从业单位备案证明',width:450,height:200});
+			});
+		}
+	});
+}
+function retrieveData2(data_, callback_, settings_) {
+	// 额外参数绑入data_,后台对应直接参数绑定并转java(参数名必须为data)
+	data_ = serializeForm("form1", data_);
+	var url  = "";
+	if(op==6){
+		url = "/comp/shenpichaxun";
+	} else if(op==7){
+		url = "jinduchaxun";
+	}
+
+	// 异步取得
+	$.postRest(url, {
+		data : JSON.stringify(data_)
+	}, callback_);
+}
+function shenpi() {
+	var a = $(this), id = a.parent().parent().attr("id");
+	var nodename = a.attr("id");
+	window.location = "/comp/shenhe/"+nodename+"?id=" + id;// + "&nodename=" + encodeURIComponent(nodename);
+}
+function update() {
+	var a = $(this), id = a.parent().parent().attr("id");
+	window.location = "update?id=" + id;
+}
+function toDelete(){
+	if(confirm("确认删除单位备案信息，删除后将无法恢复?")){
+		var tr = $(this).parent().parent();
+		$.postRest("/comp/delete", { dwbaId : tr.attr("id") }, function(rs){
+			if (rs.code == 0) { 
+				alert("删除单位备案失败!" + rs.info);
+				return;
+			} else {
+				alert(rs.data);
+				tr.remove();
+			}
+		});
+	}
+}
+function chongxindijiao(){
+	if(confirm("确认提交?")){
+		var a = $(this), id = a.parent().parent().attr("id");
+		$.postRest("/comp/chongxindijiao", { dwbaId : id }, function(rs){
+			if (rs.code == 0) { 
+				alert("重新递交失败!" + rs.info);
+				return;
+			} else {
+				alert(rs.data);
+				ajaxSearch2();
+			}
+		});
+	}
+}
+function del(e){
+	var type = e.data;
+	if(confirm("确认"+(type=="1"?"注销":"恢复")+"该单位?")){
+		var a = $(this), id = a.parent().parent().attr("id");
+		$.postRest("/comp/del", {dwbaId: id, type:type}, function(rs){
+			if (rs.code == 0) { 
+				alert((type=="1"?"注销":"恢复")+"单位失败!" + rs.info);
+				return;
+			} else {
+				alert(rs.data);
+				ajaxSearch2();
+			}
+		});
+	}
+}
+//选择坐标回调函数
+function biaozhu(json){
+	$("#gps").val(json.lng+","+json.lat);
+}
+//物品增加一行
+function addWupin() {
+	var index = parseInt($(this).parent().parent().attr("class"));
+	var wupinid = "wupinid"+index;
+	var deleteWupin = "deleteWupin"+index;
+	var wupinname = "wupinname"+index;
+	checkboxName = "checkbox"+index;
+	var tr='<tr calsss="'+index+'">';
+	    tr+='<td class="col-sm-1">'+(index+1)+'</td>';
+	    tr+='<td class="col-sm-3"><input id="' + wupinname + '" name="wupinname" type="text" placeholder="填写物品名" class="form-control"/>';				    	
+	    tr+='<input type="hidden" id="'+wupinid+'" name="wupinid"></td>';			    	
+	    tr+='<td class="col-sm-2"><input type="checkbox" id="issc'+index+'" name="'+checkboxName+'" value="1"></td>';
+	    tr+='<td class="col-sm-2"><input type="checkbox" id="isxs'+index+'" name="'+checkboxName+'" value="1"></td>';
+	    tr+='<td class="col-sm-2"><input type="checkbox" id="iscc'+index+'" name="'+checkboxName+'" value="1"></td>';
+	    tr+='<td class="col-sm-2"><input type="checkbox" id="issy'+index+'" name="'+checkboxName+'" value="1"></td>';
+	    tr+='<td class="col-sm-2"><input type="button" value="删除" id="'+deleteWupin+'" class="btn big-btn-red"/></td>';
+	    tr+='<input type="hidden" id="checkValue'+index+'" name="checkValue" value="0,0,0,0">';
+	    tr+='</tr>';
+	    $(this).parent().parent().parent().append(tr);
+	    $(this).parent().parent().attr("class",parseInt($(this).parent().parent().attr("class"))+1);
+	    $("#issc"+index).click(function(){	 	  	   
+			checkValues(index);
+		});
+	    $("#isxs"+index).click(function(){	 	  	   
+	    	checkValues(index);
+		});
+	    $("#iscc"+index).click(function(){	 	  	   
+			checkValues(index);
+		});
+	    $("#issy"+index).click(function(){	 	  	   
+			checkValues(index);
+		});
+	    
+	    var ot = {};
+	    ot[wupinid]="wupinid";
+	    dynamicAutoComplete({target:wupinname,otherTarget:ot,data:{},url:"/common/authc/wupinComplete",minLength:0});
+	    $("#"+wupinname).inputValidator({min:1,onError:"请选择易制爆危险化学品品名"});
+	    $("#"+wupinid).inputValidator({min:1,onError:"请选择易制爆危险化学品品名"});
+		$("#"+wupinname).parent().parent().find(":checkbox").inputValidator({min:1,onError:"需至少选择一个涉及类型"});
+	    
+	    $("#"+deleteWupin).click(function(){	 	  	   
+	  	  $(this).parent().parent().remove();
+	    });
+}
+function checkValues(index) {
+	if($("#issc"+index).is(':checked')) {
+		$("#checkValue"+index).val("1");
+	} else{
+		$("#checkValue"+index).val("0");
+	}
+	if($("#isxs"+index).is(':checked')) {
+		$("#checkValue"+index).val($("#checkValue"+index).val()+",1");
+	} else{
+		$("#checkValue"+index).val($("#checkValue"+index).val()+",0");
+	}
+	if($("#iscc"+index).is(':checked')) {
+		$("#checkValue"+index).val($("#checkValue"+index).val()+",1");
+	} else{
+		$("#checkValue"+index).val($("#checkValue"+index).val()+",0");
+	}
+	if($("#issy"+index).is(':checked')) {
+		$("#checkValue"+index).val($("#checkValue"+index).val()+",1");
+	} else{
+		$("#checkValue"+index).val($("#checkValue"+index).val()+",0");
+	}
+}
+/**
+ * 文件上传
+ */
+function fileUpload(max){
+	if($(this).parent().parent().children().last().find("a").length>0){
+		alert("请先删除当前附件再重新上传附件");
+		return false;
+	}
+	var maxsize = 1024;//限制大小1024KB
+	var fileTypeExts = '*.jpg;*.png;*.bmp;*.jpeg;*.gif;*.zip;*.rar';
+	ShowDialog({url:"/fileUpload.html?maxsize="+maxsize+"&fileTypeExts="+fileTypeExts
+		+"&filetypeid="+this.id+"&fileMulti=false&callback=setFilecontent",title:'选择附件', width:600,height:450});
+}
+function setFilecontent(arr){
+	var str="",filetypeid=arr[0]["filetypeid"];
+	for(var i=0;i<arr.length;i++){
+		str+="<a href='/s/upload/getRedisDetail?fileTempName="+arr[0]["fileTempName"]+"&fileName="+encodeURIComponent(arr[0]["fileName"])+"' target='_blank'>";
+		str+=arr[i]["fileName"];
+		str+="</a>";
+		str+="<input type='hidden' name='fileNames"+filetypeid+"' value='"+arr[i]["fileName"]+"'>";
+		str+="<input type='hidden' name='serverFileNames"+filetypeid+"' value='"+arr[i]["fileTempName"]+"'>";
+		str+="&nbsp&nbsp&nbsp";
+		str+="<a href='#D2E' title='删除此附件'><img src='/static/aspt/swfupload/close.gif'/></a>";
+	}
+	var td = $("."+filetypeid);
+	td.empty();
+	td.append(str);
+	$("a[title='删除此附件']").click(deleteFile);
+}
+function deleteFile(e,obj){
+	div = (obj||$(this)).parent();
+	(obj||$(this)).parent().empty();
+	div.append("<span class=\"must\">*</span>1024KB内");
+}
+function deleteBeianFile(){
+	if(confirm("您正在删除原有附件，删除后将无法恢复是否确认删除？")){
+		var id = $(this).attr("id");
+		var dd = $("#delFileId").val();
+		if(dd!=""){
+			var cc = dd.split("_");
+			cc.push(id);
+			$("#delFileId").val(cc.join("_"));
+		}else{
+			$("#delFileId").val(id);
+		}
+		deleteFile(null,$(this));
+	}
+}
+function defaultGpsName(){
+	if($("#province").val()=="" || $("#province").val()==null){
+		return "";
+	} else if ($.inArray($("#province").val(),["110000000","120000000","310000000","500000000"])!=-1){
+		return $("#province option:selected").text();
+	} else {
+		if($("#city").val()=="" || $("#city").val()==null){
+			return $("#province option:selected").text();
+		} else {
+			return $("#city option:selected").text();
+		}
+	}
+}
+function getSydwLeixing() {
+	var sydwLeixingId = $("#sydwLeixingId").val();
+	if(sydwLeixingId=="XX"){
+		$("#xxlx").show();
+		$("#xxdwLeixing").unFormValidator(false);
+	} else {
+		$("#xxlx").hide();
+		$("#xxdwLeixingId").val("");
+		$("#xxdwLeixing").val("");
+		$("#xxdwLeixing").unFormValidator(true);
+	}
+}
+//选择物品后回调
+//function setWpCheckbox(e,ui){
+//	//alert(ui.item['label']+"\n"+ui.item['wupinId']);
+//	alert($(this).parent().parent().find(":checkbox").length);
+//}
